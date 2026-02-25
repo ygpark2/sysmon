@@ -1,0 +1,15 @@
+global
+  log stdout format raw local0
+
+defaults
+  mode http
+  timeout connect 5s
+  timeout client 50s
+  timeout server 50s
+
+frontend http_in
+  bind *:80
+  default_backend grafana_backend
+
+backend grafana_backend
+  server grafana grafana:3000 check

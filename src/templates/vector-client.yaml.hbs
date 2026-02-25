@@ -1,0 +1,21 @@
+data_dir: /var/lib/vector
+
+sources:
+  host_logs:
+    type: file
+    include:
+      - /var/log/*.log
+    read_from: beginning
+
+sinks:
+  opensearch:
+    type: elasticsearch
+    inputs:
+      - host_logs
+    endpoints:
+      - "{{vectorOpenSearchEndpoint}}"
+    mode: bulk
+
+api:
+  enabled: true
+  address: 0.0.0.0:8686

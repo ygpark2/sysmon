@@ -1,0 +1,123 @@
+version: "3.8"
+
+services:
+{{#if enableAlloy}}
+  alloy:
+    image: {{alloyImage}}
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    configs:
+      - source: alloy-client-config
+        target: /etc/alloy/config.alloy
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "12345:12345"
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+{{/if}}
+{{#if enableOtelClientCollector}}
+  otel-client-collector:
+    image: {{otelClientImage}}
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    configs:
+      - source: otel-client-config
+        target: /etc/otelcol-contrib/config.yaml
+    ports:
+      - "14317:4317"
+      - "14318:4318"
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+{{/if}}
+{{#if enableFluentBit}}
+  fluent-bit:
+    image: {{fluentBitImage}}
+    command:
+      - /fluent-bit/bin/fluent-bit
+      - -c
+      - /fluent-bit/etc/fluent-bit.conf
+    configs:
+      - source: fluent-bit-client-config
+        target: /fluent-bit/etc/fluent-bit.conf
+    volumes:
+      - /var/log:/var/log:ro
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+{{/if}}
+{{#if enableFilebeat}}
+  filebeat:
+    image: {{filebeatImage}}
+    user: root
+    command:
+      - -e
+      - --strict.perms=false
+      - -c
+      - /usr/share/filebeat/filebeat.yml
+    configs:
+      - source: filebeat-client-config
+        target: /usr/share/filebeat/filebeat.yml
+    volumes:
+      - /var/log:/var/log:ro
+      - {{filebeatDataPath}}:/usr/share/filebeat/data
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+{{/if}}
+{{#if enableVector}}
+  vector:
+    image: {{vectorImage}}
+    command:
+      - --config
+      - /etc/vector/vector.yaml
+    configs:
+      - source: vector-client-config
+        target: /etc/vector/vector.yaml
+    volumes:
+      - /var/log:/var/log:ro
+      - {{vectorDataPath}}:/var/lib/vector
+    ports:
+      - "18686:8686"
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+{{/if}}
+
+{{#if hasAnyConfig}}
+configs:
+{{#if enableAlloy}}
+  alloy-client-config:
+    file: {{alloyConfigFile}}
+{{/if}}
+{{#if enableOtelClientCollector}}
+  otel-client-config:
+    file: {{otelClientConfigFile}}
+{{/if}}
+{{#if enableFluentBit}}
+  fluent-bit-client-config:
+    file: {{fluentBitConfigFile}}
+{{/if}}
+{{#if enableFilebeat}}
+  filebeat-client-config:
+    file: {{filebeatConfigFile}}
+{{/if}}
+{{#if enableVector}}
+  vector-client-config:
+    file: {{vectorConfigFile}}
+{{/if}}
+{{/if}}
+
+networks:
+  observability:
+    external: true
+    name: {{obsNetwork}}

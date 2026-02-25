@@ -1,0 +1,160 @@
+version: "3.8"
+
+services:
+{{#if enableOpenSearch}}
+{{#if isSingleNode}}
+  opensearch:
+    image: opensearchproject/opensearch:{{openSearchImageTag}}
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - {{openSearchSingleNodeDataPath}}:/usr/share/opensearch/data
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+{{else}}
+{{#each openSearchNodes}}
+  {{name}}:
+    image: opensearchproject/opensearch:{{../openSearchImageTag}}
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name={{name}}
+      - discovery.seed_hosts={{../openSearchSeedHosts}}
+      - cluster.initial_master_nodes={{../openSearchMasterNodes}}
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - {{dataPath}}:/usr/share/opensearch/data
+{{#if exposePorts}}
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+{{/if}}
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+{{/each}}
+{{/if}}
+{{/if}}
+{{#if enableLoki}}
+  loki:
+    image: {{lokiImage}}
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - {{lokiDataPath}}:/loki
+    ports:
+      - "3100:3100"
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+{{/if}}
+{{#if enableGrafana}}
+  grafana:
+    image: {{grafanaImage}}
+    user: "{{grafanaUser}}"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - {{grafanaDataPath}}:/var/lib/grafana
+      - {{grafanaProvisioningPath}}:/etc/grafana/provisioning
+{{#unless enableHaproxy}}
+    ports:
+      - "3000:3000"
+{{/unless}}
+    networks: [observability]
+{{#if hasGrafanaDependsOn}}
+    depends_on:
+{{#each grafanaDependsOn}}
+      - {{this}}
+{{/each}}
+{{/if}}
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+{{/if}}
+{{#if enableHaproxy}}
+  haproxy:
+    image: {{haproxyImage}}
+    volumes:
+      - {{haproxyConfigFile}}:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "80:80"
+    networks: [observability]
+{{#if hasHaproxyDependsOn}}
+    depends_on:
+{{#each haproxyDependsOn}}
+      - {{this}}
+{{/each}}
+{{/if}}
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+{{/if}}
+{{#if enablePrometheus}}
+  prometheus:
+    image: {{prometheusImage}}
+    user: "{{prometheusUser}}"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - {{prometheusConfigFile}}:/etc/prometheus/prometheus.yml:ro
+      - {{prometheusDataPath}}:/prometheus
+    ports:
+      - "9090:9090"
+    networks: [observability]
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+{{/if}}
+{{#if enableOtel}}
+  otel-collector:
+    image: {{otelCollectorImage}}
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    volumes:
+      - {{otelCollectorConfigFile}}:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "8889:8889" # Prometheus scrape endpoint (exporter)
+    networks: [observability]
+{{#if hasOtelDependsOn}}
+    depends_on:
+{{#each otelDependsOn}}
+      - {{this}}
+{{/each}}
+{{/if}}
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+{{/if}}
+networks:
+  observability:

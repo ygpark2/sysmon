@@ -1,0 +1,55 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http:
+        endpoint: "0.0.0.0:4318"
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  batch:
+    send_batch_size: 1024
+    timeout: 1s
+
+{{#if isOpenSearchBackend}}
+extensions:
+  basicauth/client:
+    client_auth:
+      username: "admin"
+      password: "${OPENSEARCH_ADMIN_PASSWORD}"
+
+{{/if}}
+exporters:
+{{#if isOpenSearchBackend}}
+  opensearch:
+    http:
+      endpoint: "https://opensearch:9200"
+      auth:
+        authenticator: basicauth/client
+      tls:
+        insecure_skip_verify: true
+{{/if}}
+{{#if isLokiBackend}}
+  loki:
+    endpoint: "http://loki:3100/loki/api/v1/push"
+{{/if}}
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+service:
+{{#if isOpenSearchBackend}}
+  extensions: [basicauth/client]
+{{/if}}
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [{{#each logExporters}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]

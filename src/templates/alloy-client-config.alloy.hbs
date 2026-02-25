@@ -1,0 +1,21 @@
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    traces  = [otelcol.exporter.otlphttp.upstream.input]
+    metrics = [otelcol.exporter.otlphttp.upstream.input]
+    logs    = [otelcol.exporter.otlphttp.upstream.input]
+  }
+}
+
+otelcol.exporter.otlphttp "upstream" {
+  client {
+    endpoint = "{{alloyOtlpEndpoint}}"
+  }
+}

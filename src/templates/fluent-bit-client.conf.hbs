@@ -1,0 +1,22 @@
+[SERVICE]
+    Flush        1
+    Daemon       Off
+    Log_Level    info
+
+[INPUT]
+    Name         tail
+    Path         /var/log/*.log
+    Tag          host.logs
+    Read_from_Head On
+
+[OUTPUT]
+    Name         opensearch
+    Match        *
+    Host         {{fluentBitOpenSearchHost}}
+    Port         {{fluentBitOpenSearchPort}}
+    Index        fluentbit-client
+    Suppress_Type_Name On
+    Logstash_Format On
+{{#if fluentBitOpenSearchTls}}
+    tls          On
+{{/if}}

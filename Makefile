@@ -1,0 +1,216 @@
+ENV_DIR ?= env
+include $(ENV_DIR)/base.mk
+include $(ENV_DIR)/stack.mk
+include $(ENV_DIR)/client.mk
+-include $(ENV_DIR)/local.mk
+-include $(ENV_FILE)
+
+# Reuse initial admin password for OpenSearch clients when admin password is not set.
+OPENSEARCH_ADMIN_PASSWORD ?= $(OPENSEARCH_INITIAL_ADMIN_PASSWORD)
+
+.PHONY: usage npm-install prepare-stack-data prepare-client-data clean stack client-stack stack-client deploy remove status logs logs-%
+
+NPM_INSTALL_STAMP := src/node_modules/.install-stamp
+
+usage:
+	@printf '%s\n' \
+		'Usage:' \
+		'  make <target> [VAR=value ...]' \
+		'' \
+		'Targets:' \
+		'  usage         Print this help message' \
+		'  npm-install   Install src npm dependencies' \
+		'  prepare-stack-data   Create required stack bind-mount dirs under ./data' \
+		'  prepare-client-data  Create required client bind-mount dirs under ./data' \
+		'  stack         Generate deploy stack file' \
+		'  client-stack  Generate client stack file' \
+		'  stack-client  Alias of client-stack' \
+		'  deploy        Deploy stack (depends on stack)' \
+		'  remove        Remove deployed stack' \
+		'  status        Show stack services' \
+		'  logs          Tail otel-collector service logs' \
+		'  logs-<name>   Tail logs for $(STACK_NAME)_<name> service' \
+		'' \
+		'Options (common):' \
+		'  STACK_NAME='$(STACK_NAME) \
+		'  ENV_FILE='$(ENV_FILE) \
+		'  STACK_FILE='$(STACK_FILE) \
+		'  CLIENT_STACK_FILE='$(CLIENT_STACK_FILE) \
+		'  OBS_NETWORK='$(OBS_NETWORK) \
+		'' \
+		'Options (stack target):' \
+		'  LOKI_IMAGE='$(LOKI_IMAGE) \
+		'  HAPROXY_IMAGE='$(HAPROXY_IMAGE) \
+		'  GRAFANA_IMAGE='$(GRAFANA_IMAGE) \
+		'  GRAFANA_USER='$(GRAFANA_USER) \
+		'  PROMETHEUS_IMAGE='$(PROMETHEUS_IMAGE) \
+		'  PROMETHEUS_USER='$(PROMETHEUS_USER) \
+		'  OTEL_COLLECTOR_IMAGE='$(OTEL_COLLECTOR_IMAGE) \
+		'  LOKI_DATA_PATH='$(LOKI_DATA_PATH) \
+		'  HAPROXY_CONFIG_FILE='$(HAPROXY_CONFIG_FILE) \
+		'  OTEL_COLLECTOR_CONFIG_FILE='$(OTEL_COLLECTOR_CONFIG_FILE) \
+		'  GRAFANA_DATASOURCES_FILE='$(GRAFANA_DATASOURCES_FILE) \
+		'  OPENSEARCH_MAJOR='$(OPENSEARCH_MAJOR) \
+		'  OPENSEARCH_VERSION='$(OPENSEARCH_VERSION) \
+		'  OPENSEARCH_NODES='$(OPENSEARCH_NODES) \
+		'  ENABLE_OPENSEARCH='$(ENABLE_OPENSEARCH) \
+		'  ENABLE_LOKI='$(ENABLE_LOKI) \
+		'  ENABLE_GRAFANA='$(ENABLE_GRAFANA) \
+		'  ENABLE_HAPROXY='$(ENABLE_HAPROXY) \
+		'  ENABLE_PROMETHEUS='$(ENABLE_PROMETHEUS) \
+		'  ENABLE_OTEL='$(ENABLE_OTEL) \
+		'' \
+		'Options (client-stack target):' \
+		'  ENABLE_CLIENT_ALLOY='$(ENABLE_CLIENT_ALLOY) \
+		'  ENABLE_CLIENT_OTELCOL='$(ENABLE_CLIENT_OTELCOL) \
+		'  ENABLE_CLIENT_FLUENT_BIT='$(ENABLE_CLIENT_FLUENT_BIT) \
+		'  ENABLE_CLIENT_FILEBEAT='$(ENABLE_CLIENT_FILEBEAT) \
+		'  ENABLE_CLIENT_VECTOR='$(ENABLE_CLIENT_VECTOR) \
+		'  CLIENT_OTLP_ENDPOINT='$(CLIENT_OTLP_ENDPOINT) \
+		'  CLIENT_OPENSEARCH_ENDPOINT='$(CLIENT_OPENSEARCH_ENDPOINT) \
+		'  ALLOY_IMAGE='$(ALLOY_IMAGE) \
+		'  ALLOY_OTLP_ENDPOINT='$(ALLOY_OTLP_ENDPOINT) \
+		'  ALLOY_CONFIG_FILE='$(ALLOY_CONFIG_FILE) \
+		'  OTEL_CLIENT_IMAGE='$(OTEL_CLIENT_IMAGE) \
+		'  OTEL_CLIENT_OTLP_ENDPOINT='$(OTEL_CLIENT_OTLP_ENDPOINT) \
+		'  OTEL_CLIENT_CONFIG_FILE='$(OTEL_CLIENT_CONFIG_FILE) \
+		'  FLUENT_BIT_IMAGE='$(FLUENT_BIT_IMAGE) \
+		'  FLUENT_BIT_OPENSEARCH_ENDPOINT='$(FLUENT_BIT_OPENSEARCH_ENDPOINT) \
+		'  FLUENT_BIT_CONFIG_FILE='$(FLUENT_BIT_CONFIG_FILE) \
+		'  FILEBEAT_IMAGE='$(FILEBEAT_IMAGE) \
+		'  FILEBEAT_OPENSEARCH_ENDPOINT='$(FILEBEAT_OPENSEARCH_ENDPOINT) \
+		'  FILEBEAT_CONFIG_FILE='$(FILEBEAT_CONFIG_FILE) \
+		'  VECTOR_IMAGE='$(VECTOR_IMAGE) \
+		'  VECTOR_OPENSEARCH_ENDPOINT='$(VECTOR_OPENSEARCH_ENDPOINT) \
+		'  VECTOR_CONFIG_FILE='$(VECTOR_CONFIG_FILE) \
+		'' \
+		'Example notes:' \
+		'  The first command generates stack.yml with all stack-related options overridden.' \
+		'  The second command generates stack.client.yml with all client-stack options overridden.' \
+		'' \
+		'Examples (all options combined):' \
+		'  make stack STACK_NAME=obs ENV_FILE=.env STACK_FILE=deploy/stack.yml LOKI_IMAGE=grafana/loki:3.0.0 HAPROXY_IMAGE=haproxy:2.9-alpine GRAFANA_IMAGE=grafana/grafana:11.1.0 GRAFANA_USER=1000:1000 PROMETHEUS_IMAGE=prom/prometheus:v2.54.1 PROMETHEUS_USER=1000:1000 OTEL_COLLECTOR_IMAGE=otel/opentelemetry-collector-contrib:0.112.0 LOKI_DATA_PATH=./data/loki HAPROXY_CONFIG_FILE=config/haproxy.cfg OTEL_COLLECTOR_CONFIG_FILE=config/otel-collector-config.yaml GRAFANA_DATASOURCES_FILE=config/grafana/provisioning/datasources/datasources.yml OPENSEARCH_MAJOR=2 OPENSEARCH_VERSION=2.14.0 OPENSEARCH_NODES=1 ENABLE_OPENSEARCH=true ENABLE_LOKI=false ENABLE_GRAFANA=true ENABLE_HAPROXY=true ENABLE_PROMETHEUS=true ENABLE_OTEL=true' \
+		'  make client-stack STACK_NAME=obs ENV_FILE=.env CLIENT_STACK_FILE=deploy/stack.client.yml OBS_NETWORK=obs_observability ENABLE_CLIENT_ALLOY=true ENABLE_CLIENT_OTELCOL=false ENABLE_CLIENT_FLUENT_BIT=false ENABLE_CLIENT_FILEBEAT=false ENABLE_CLIENT_VECTOR=false CLIENT_OTLP_ENDPOINT=http://otel-collector:4318 CLIENT_OPENSEARCH_ENDPOINT=http://opensearch:9200 ALLOY_IMAGE=grafana/alloy:v1.5.1 ALLOY_OTLP_ENDPOINT=http://otel-collector:4318 ALLOY_CONFIG_FILE=config/alloy-client-config.alloy OTEL_CLIENT_IMAGE=otel/opentelemetry-collector-contrib:0.112.0 OTEL_CLIENT_OTLP_ENDPOINT=http://otel-collector:4318 OTEL_CLIENT_CONFIG_FILE=config/otel-client-collector-config.yaml FLUENT_BIT_IMAGE=fluent/fluent-bit:3.1.9 FLUENT_BIT_OPENSEARCH_ENDPOINT=http://opensearch:9200 FLUENT_BIT_CONFIG_FILE=config/fluent-bit-client.conf FILEBEAT_IMAGE=docker.elastic.co/beats/filebeat:8.15.2 FILEBEAT_OPENSEARCH_ENDPOINT=http://opensearch:9200 FILEBEAT_CONFIG_FILE=config/filebeat-client.yml VECTOR_IMAGE=timberio/vector:0.42.0-alpine VECTOR_OPENSEARCH_ENDPOINT=http://opensearch:9200 VECTOR_CONFIG_FILE=config/vector-client.yaml'
+
+npm-install: $(NPM_INSTALL_STAMP)
+
+$(NPM_INSTALL_STAMP): src/package.json
+	npm --prefix src install
+	@mkdir -p src/node_modules
+	@touch $(NPM_INSTALL_STAMP)
+
+prepare-stack-data:
+	@set -eu; \
+	mkdir -p ./data; \
+	is_true() { case "$$(printf '%s' "$$1" | tr '[:upper:]' '[:lower:]')" in true|1|yes) return 0;; *) return 1;; esac; }; \
+	if is_true "$(ENABLE_OPENSEARCH)"; then \
+		nodes="$(OPENSEARCH_NODES)"; \
+		case "$$nodes" in ''|*[!0-9]*) nodes=1 ;; esac; \
+		if [ "$$nodes" -lt 1 ]; then nodes=1; fi; \
+		i=1; \
+		while [ "$$i" -le "$$nodes" ]; do \
+			mkdir -p "./data/opensearch$$i"; \
+			i=$$((i + 1)); \
+		done; \
+	fi; \
+	if is_true "$(ENABLE_LOKI)"; then mkdir -p "$(LOKI_DATA_PATH)"; fi; \
+	if is_true "$(ENABLE_GRAFANA)"; then mkdir -p ./data/grafana; fi; \
+	if is_true "$(ENABLE_PROMETHEUS)"; then mkdir -p ./data/prometheus; fi
+
+prepare-client-data:
+	@set -eu; \
+	mkdir -p ./data; \
+	is_true() { case "$$(printf '%s' "$$1" | tr '[:upper:]' '[:lower:]')" in true|1|yes) return 0;; *) return 1;; esac; }; \
+	if is_true "$(ENABLE_CLIENT_FILEBEAT)"; then mkdir -p ./data/filebeat; fi; \
+	if is_true "$(ENABLE_CLIENT_VECTOR)"; then mkdir -p ./data/vector; fi
+
+clean:
+	rm -rf config deploy
+
+stack: npm-install prepare-stack-data
+	PROJECT_ROOT=$(CURDIR) \
+	STACK_FILE=$(STACK_FILE) \
+	LOKI_IMAGE=$(LOKI_IMAGE) \
+	HAPROXY_IMAGE=$(HAPROXY_IMAGE) \
+	GRAFANA_IMAGE=$(GRAFANA_IMAGE) \
+	GRAFANA_USER=$(GRAFANA_USER) \
+	PROMETHEUS_IMAGE=$(PROMETHEUS_IMAGE) \
+	PROMETHEUS_USER=$(PROMETHEUS_USER) \
+	OTEL_COLLECTOR_IMAGE=$(OTEL_COLLECTOR_IMAGE) \
+	LOKI_DATA_PATH=$(LOKI_DATA_PATH) \
+	HAPROXY_CONFIG_FILE=$(HAPROXY_CONFIG_FILE) \
+	OTEL_COLLECTOR_CONFIG_FILE=$(OTEL_COLLECTOR_CONFIG_FILE) \
+	GRAFANA_DATASOURCES_FILE=$(GRAFANA_DATASOURCES_FILE) \
+	OPENSEARCH_MAJOR=$(OPENSEARCH_MAJOR) \
+	OPENSEARCH_VERSION=$(OPENSEARCH_VERSION) \
+	OPENSEARCH_NODES=$(OPENSEARCH_NODES) \
+	ENABLE_OPENSEARCH=$(ENABLE_OPENSEARCH) \
+	ENABLE_LOKI=$(ENABLE_LOKI) \
+	ENABLE_GRAFANA=$(ENABLE_GRAFANA) \
+	ENABLE_HAPROXY=$(ENABLE_HAPROXY) \
+	ENABLE_PROMETHEUS=$(ENABLE_PROMETHEUS) \
+	ENABLE_OTEL=$(ENABLE_OTEL) \
+	npm --prefix src run --silent gen:stack
+
+client-stack: npm-install prepare-client-data
+	PROJECT_ROOT=$(/home/ec2-user/config/otel-collector-config.yaml) \
+	CLIENT_STACK_FILE=$(CLIENT_STACK_FILE) \
+	OBS_NETWORK=$(OBS_NETWORK) \
+	ENABLE_CLIENT_ALLOY=$(ENABLE_CLIENT_ALLOY) \
+	ENABLE_CLIENT_OTELCOL=$(ENABLE_CLIENT_OTELCOL) \
+	ENABLE_CLIENT_FLUENT_BIT=$(ENABLE_CLIENT_FLUENT_BIT) \
+	ENABLE_CLIENT_FILEBEAT=$(ENABLE_CLIENT_FILEBEAT) \
+	ENABLE_CLIENT_VECTOR=$(ENABLE_CLIENT_VECTOR) \
+	CLIENT_OTLP_ENDPOINT=$(CLIENT_OTLP_ENDPOINT) \
+	CLIENT_OPENSEARCH_ENDPOINT=$(CLIENT_OPENSEARCH_ENDPOINT) \
+	ALLOY_IMAGE=$(ALLOY_IMAGE) \
+	ALLOY_OTLP_ENDPOINT=$(ALLOY_OTLP_ENDPOINT) \
+	ALLOY_CONFIG_FILE=$(ALLOY_CONFIG_FILE) \
+	OTEL_CLIENT_IMAGE=$(OTEL_CLIENT_IMAGE) \
+	OTEL_CLIENT_OTLP_ENDPOINT=$(OTEL_CLIENT_OTLP_ENDPOINT) \
+	OTEL_CLIENT_CONFIG_FILE=$(OTEL_CLIENT_CONFIG_FILE) \
+	FLUENT_BIT_IMAGE=$(FLUENT_BIT_IMAGE) \
+	FLUENT_BIT_OPENSEARCH_ENDPOINT=$(FLUENT_BIT_OPENSEARCH_ENDPOINT) \
+	FLUENT_BIT_CONFIG_FILE=$(FLUENT_BIT_CONFIG_FILE) \
+	FILEBEAT_IMAGE=$(FILEBEAT_IMAGE) \
+	FILEBEAT_OPENSEARCH_ENDPOINT=$(FILEBEAT_OPENSEARCH_ENDPOINT) \
+	FILEBEAT_CONFIG_FILE=$(FILEBEAT_CONFIG_FILE) \
+	VECTOR_IMAGE=$(VECTOR_IMAGE) \
+	VECTOR_OPENSEARCH_ENDPOINT=$(VECTOR_OPENSEARCH_ENDPOINT) \
+	VECTOR_CONFIG_FILE=$(VECTOR_CONFIG_FILE) \
+	npm --prefix src run --silent gen:client-stack
+
+stack-client: client-stack
+
+deploy:
+	PROJECT_ROOT=$(CURDIR) \
+	OPENSEARCH_INITIAL_ADMIN_PASSWORD=$(OPENSEARCH_INITIAL_ADMIN_PASSWORD) \
+	OPENSEARCH_ADMIN_PASSWORD=$(OPENSEARCH_ADMIN_PASSWORD) \
+	GRAFANA_ADMIN_USER=$(GRAFANA_ADMIN_USER) \
+	GRAFANA_ADMIN_PASSWORD=$(GRAFANA_ADMIN_PASSWORD) \
+	docker stack deploy -c $(STACK_FILE) --with-registry-auth $(STACK_NAME)
+
+conf:
+	PROJECT_ROOT=$(CURDIR) \
+	OPENSEARCH_INITIAL_ADMIN_PASSWORD=$(OPENSEARCH_INITIAL_ADMIN_PASSWORD) \
+	OPENSEARCH_ADMIN_PASSWORD=$(OPENSEARCH_ADMIN_PASSWORD) \
+	GRAFANA_ADMIN_USER=$(GRAFANA_ADMIN_USER) \
+	GRAFANA_ADMIN_PASSWORD=$(GRAFANA_ADMIN_PASSWORD) \
+	docker stack config -c $(STACK_FILE)
+
+ps:
+	docker stack ps $(STACK_NAME)
+
+remove:
+	docker stack rm $(STACK_NAME)
+
+status:
+	docker stack services $(STACK_NAME)
+
+logs-%: TARGET=$*
+logs-%:
+	docker service logs -f $(STACK_NAME)_$(TARGET)
+
+sync:
+	@rsync -avz -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+	  --progress config data deploy env Makefile .env --delete $(HOST_USERNAME)@$(HOST):sysmon/
