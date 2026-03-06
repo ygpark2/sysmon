@@ -1,0 +1,149 @@
+{
+  "uid": "{{dashboardUid}}",
+  "title": "{{dashboardTitle}}",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "tags": ["jungto", "logs", "opensearch"],
+  "templating": {
+    "list": [
+      {
+        "allValue": "*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{openSearchLogsDatasource}}",
+        "definition": "{\"find\": \"terms\", \"field\": \"attributes.stack.keyword\", \"size\": 1000, \"orderBy\": \"doc_count\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Stack",
+        "multi": true,
+        "name": "stack",
+        "options": [],
+        "query": "{\"find\": \"terms\", \"field\": \"attributes.stack.keyword\", \"size\": 1000, \"orderBy\": \"doc_count\"}",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": "*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{openSearchLogsDatasource}}",
+        "definition": "{\"find\": \"terms\", \"field\": \"attributes.service_name.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:$stack\", \"orderBy\": \"doc_count\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Service",
+        "multi": true,
+        "name": "service",
+        "options": [],
+        "query": "{\"find\": \"terms\", \"field\": \"attributes.service_name.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:$stack\", \"orderBy\": \"doc_count\"}",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": "*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{openSearchLogsDatasource}}",
+        "definition": "{\"find\": \"terms\", \"field\": \"attributes.environment.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:$stack AND attributes.service_name.keyword:$service\", \"orderBy\": \"doc_count\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Environment",
+        "multi": true,
+        "name": "environment",
+        "options": [],
+        "query": "{\"find\": \"terms\", \"field\": \"attributes.environment.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:$stack AND attributes.service_name.keyword:$service\", \"orderBy\": \"doc_count\"}",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Log Volume",
+      "type": "timeseries",
+      "datasource": "{{openSearchLogsDatasource}}",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "alias": "log count",
+          "query": "attributes.stack.keyword:$stack AND attributes.service_name.keyword:$service",
+          "timeField": "@timestamp",
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "date_histogram",
+              "field": "@timestamp",
+              "settings": {
+                "interval": "auto",
+                "min_doc_count": "0"
+              }
+            }
+          ],
+          "metrics": [
+            {
+              "id": "1",
+              "type": "count"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Recent Log Lines",
+      "type": "logs",
+      "datasource": "{{openSearchLogsDatasource}}",
+      "gridPos": {
+        "h": 15,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "attributes.stack.keyword:$stack AND attributes.service_name.keyword:$service AND _exists_:body",
+          "timeField": "@timestamp",
+          "bucketAggs": [],
+          "metrics": [
+            {
+              "id": "1",
+              "type": "logs"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

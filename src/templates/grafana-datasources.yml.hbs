@@ -12,6 +12,7 @@ datasources:
     type: grafana-opensearch-datasource
     access: proxy
     url: https://opensearch:9200
+    database: "{{openSearchLogsIndex}}"
     basicAuth: true
     basicAuthUser: admin
     secureJsonData:
@@ -19,7 +20,11 @@ datasources:
     jsonData:
       tlsSkipVerify: true
       timeField: "@timestamp"
-      version: 2
+      logMessageField: body
+      flavor: "Opensearch"
+      version: "{{openSearchVersion}}"
+      pplEnabled: false
+      maxConcurrentShardRequests: 5
 {{/if}}
 {{#if isLokiBackend}}
   - name: Loki
