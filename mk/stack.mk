@@ -1,0 +1,32 @@
+LOKI_IMAGE ?= grafana/loki:latest
+HAPROXY_IMAGE ?= haproxy:3.3-alpine
+HAPROXY_DOMAIN ?= ovs.yeto.it.kr
+GRAFANA_IMAGE ?= grafana/grafana:latest
+GRAFANA_USER ?= 1000:1000
+GRAFANA_INSTALL_PLUGINS ?= grafana-opensearch-datasource
+PROMETHEUS_IMAGE ?= prom/prometheus:latest
+PROMETHEUS_USER ?= 1000:1000
+OTEL_COLLECTOR_IMAGE ?= otel/opentelemetry-collector-contrib:latest
+OPENSEARCH_IMAGE ?= opensearchproject/opensearch:3
+LOKI_DATA_PATH ?= ./data/loki
+HAPROXY_CONFIG_FILE ?= config/haproxy.cfg
+OTEL_COLLECTOR_CONFIG_FILE ?= config/otel-collector-config.yaml
+OPENSEARCH_OTEL_ENDPOINT ?= https://opensearch:9200
+OPENSEARCH_OTEL_LOGS_INDEX ?= ss4o_logs-%{stack}-%{service_name}-%{environment}
+OPENSEARCH_OTEL_LOGS_INDEX_FALLBACK ?= default
+GRAFANA_DATASOURCES_FILE ?= config/grafana/provisioning/datasources/datasources.yml
+GRAFANA_DASHBOARDS_PROVIDER_FILE ?= config/grafana/provisioning/dashboards/dashboards.yml
+GRAFANA_LOGS_DASHBOARD_FILE ?= config/grafana/provisioning/dashboards/json/jungto-logs-overview.json
+GRAFANA_METRICS_DASHBOARD_FILE ?= config/grafana/provisioning/dashboards/json/jungto-metrics-overview.json
+GRAFANA_OPENSEARCH_LOGS_INDEX ?= ss4o_logs-*
+
+OPENSEARCH_MAJOR ?= 3
+OPENSEARCH_VERSION ?=
+OPENSEARCH_NODES ?= 1
+
+ENABLE_OPENSEARCH ?= true
+ENABLE_LOKI ?= false
+ENABLE_GRAFANA ?= true
+ENABLE_HAPROXY ?= true
+ENABLE_PROMETHEUS ?= true
+ENABLE_OTEL ?= true
