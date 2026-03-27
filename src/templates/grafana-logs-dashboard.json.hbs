@@ -78,6 +78,26 @@
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "*",
+          "value": "*"
+        },
+        "hide": 0,
+        "label": "Search",
+        "name": "search",
+        "options": [
+          {
+            "selected": true,
+            "text": "*",
+            "value": "*"
+          }
+        ],
+        "query": "*",
+        "skipUrlSync": false,
+        "type": "textbox"
       }
     ]
   },
@@ -97,7 +117,8 @@
         {
           "refId": "A",
           "alias": "log count",
-          "query": "attributes.stack.keyword:$stack AND attributes.service_name.keyword:$service",
+          "query": "attributes.stack.keyword:\"$stack\" AND attributes.service_name.keyword:\"$service\" AND attributes.environment.keyword:\"$environment\" AND $search",
+          "legendFormat": "{{"{{"}}attributes.service_name{{"}}"}}",
           "timeField": "@timestamp",
           "bucketAggs": [
             {
@@ -133,7 +154,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "attributes.stack.keyword:$stack AND attributes.service_name.keyword:$service AND _exists_:body",
+          "query": "attributes.stack.keyword:\"$stack\" AND attributes.service_name.keyword:\"$service\" AND attributes.environment.keyword:\"$environment\" AND $search",
           "timeField": "@timestamp",
           "bucketAggs": [],
           "metrics": [

@@ -1,5 +1,5 @@
 {
-  "name": "aobs",
+  "name": "sysmon",
   "private": true,
   "type": "module",
   "scripts": {

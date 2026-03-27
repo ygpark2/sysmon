@@ -8,11 +8,11 @@ Generate Docker Swarm stack files from TypeScript + Handlebars templates, contro
 
 **Default Config Files**
 
-- `env/base.mk`: common stack defaults
-- `env/stack.mk`: server stack defaults
-- `env/client.mk`: client stack defaults
-- `env/local.mk` (optional): local override file loaded automatically if present
-- `.env` (or `ENV_FILE`): loaded last and overrides `env/*.mk` defaults
+- `mk/base.mk`: common stack defaults
+- `mk/stack.mk`: server stack defaults
+- `mk/client.mk`: client stack defaults
+- `mk/local.mk` (optional): local override file loaded automatically if present
+- `.env` (or `ENV_FILE`): loaded last and overrides `mk/*.mk` defaults
 
 **Quick Start**
 
@@ -51,8 +51,10 @@ make client-stack
 - HAProxy support was added for Grafana: with `ENABLE_HAPROXY=true` (default), port `80` proxies to Grafana `3000`.
 - `HAPROXY_IMAGE`, `GRAFANA_IMAGE`, `PROMETHEUS_IMAGE`, and `OTEL_COLLECTOR_IMAGE` are configurable.
 - `GRAFANA_USER` and `PROMETHEUS_USER` are configurable (`uid:gid`) for bind-mount permission control.
+- `GRAFANA_INSTALL_PLUGINS` controls Grafana plugin pre-install list (default includes OpenSearch plugin).
 - `OPENSEARCH_INITIAL_ADMIN_PASSWORD` is used for OpenSearch bootstrap.
 - `OPENSEARCH_ADMIN_PASSWORD` is used by Grafana/OTel OpenSearch auth and defaults to `OPENSEARCH_INITIAL_ADMIN_PASSWORD` when unset.
+- `make stack` generates Grafana datasource provisioning and a default OpenSearch logs dashboard automatically.
 
 **Options**
 
@@ -61,13 +63,13 @@ make client-stack
 
 ```bash
 # .env
-STACK_NAME=my-obs
+STACK_NAME=my-ovs
 ENABLE_LOKI=true
 OPENSEARCH_NODES=3
 CLIENT_OPENSEARCH_ENDPOINT=http://my-opensearch:9200
 ```
 
-- `STACK_NAME`: Docker stack name (default: `obs`)
+- `STACK_NAME`: Docker stack name (default: `ovs`)
 - `ENV_FILE`: override file path loaded last (default: `.env`)
 - `OPENSEARCH_MAJOR`: `2` or `3` (default: `2`)
 - `OPENSEARCH_VERSION`: override image tag explicitly (optional)
@@ -78,6 +80,7 @@ CLIENT_OPENSEARCH_ENDPOINT=http://my-opensearch:9200
 - `HAPROXY_IMAGE`: HAProxy image for Grafana reverse proxy (default: `haproxy:2.9-alpine`)
 - `GRAFANA_IMAGE`: Grafana image (default: `grafana/grafana:11.1.0`)
 - `GRAFANA_USER`: Grafana container user uid:gid (default: `1000:1000`)
+- `GRAFANA_INSTALL_PLUGINS`: Grafana plugin list for startup install (default: `grafana-opensearch-datasource`)
 - `PROMETHEUS_IMAGE`: Prometheus image (default: `prom/prometheus:v2.54.1`)
 - `PROMETHEUS_USER`: Prometheus container user uid:gid (default: `1000:1000`)
 - `OTEL_COLLECTOR_IMAGE`: OTel Collector image (default: `otel/opentelemetry-collector-contrib:0.112.0`)
@@ -90,8 +93,17 @@ CLIENT_OPENSEARCH_ENDPOINT=http://my-opensearch:9200
 - `STACK_FILE`: output file name (default: `deploy/stack.yml`)
 - `CLIENT_STACK_FILE`: client output file name (default: `deploy/stack.client.yml`)
 - `OTEL_COLLECTOR_CONFIG_FILE`: generated OTel Collector config path (default: `config/otel-collector-config.yaml`)
+- `OPENSEARCH_OTEL_ENDPOINT`: OpenSearch endpoint used by OTel exporter (default: `https://opensearch:9200`)
+- `OPENSEARCH_OTEL_LOGS_INDEX`: OpenSearch logs index pattern for OTel exporter (default: `ss4o_logs-%{stack}-%{service_name}-%{environment}`)
+- `OPENSEARCH_OTEL_LOGS_INDEX_FALLBACK`: fallback value used when an OTel log index placeholder is missing (default: `default`)
 - `GRAFANA_DATASOURCES_FILE`: generated Grafana datasource provisioning file (default: `config/grafana/provisioning/datasources/datasources.yml`)
-- `OBS_NETWORK`: external Swarm network for client stack (default: `<STACK_NAME>_observability`)
+- `GRAFANA_DASHBOARDS_PROVIDER_FILE`: generated Grafana dashboard provider file (default: `config/grafana/provisioning/dashboards/dashboards.yml`)
+- `GRAFANA_STAGING_LOGS_DASHBOARD_FILE`: generated Grafana staging logs dashboard file (default: `config/grafana/provisioning/dashboards/json/jts-staging-logs-overview.json`)
+- `GRAFANA_PROD_LOGS_DASHBOARD_FILE`: generated Grafana prod logs dashboard file (default: `config/grafana/provisioning/dashboards/json/jts-prod-logs-overview.json`)
+- `GRAFANA_STAGING_METRICS_DASHBOARD_FILE`: generated Grafana staging metrics dashboard file (default: `config/grafana/provisioning/dashboards/json/jts-staging-metrics-overview.json`)
+- `GRAFANA_PROD_METRICS_DASHBOARD_FILE`: generated Grafana prod metrics dashboard file (default: `config/grafana/provisioning/dashboards/json/jts-prod-metrics-overview.json`)
+- `GRAFANA_OPENSEARCH_LOGS_INDEX`: Grafana OpenSearch logs index pattern (default: `ss4o_logs-*`)
+- `OVS_NETWORK`: external Swarm network for client stack (default: `<STACK_NAME>_observability`)
 - `ALLOY_IMAGE`: Alloy image (default: `grafana/alloy:v1.5.1`)
 - `ALLOY_OTLP_ENDPOINT`: upstream OTLP/HTTP endpoint (default: `http://otel-collector:4318`)
 - `ALLOY_CONFIG_FILE`: generated Alloy config path (default: `config/alloy-client-config.alloy`)
@@ -129,6 +141,9 @@ You can enable `ENABLE_OPENSEARCH`, `ENABLE_LOKI`, or both. At least one of them
 - HAProxy template: `src/templates/haproxy.cfg.hbs`
 - OTel Collector template: `src/templates/otel-collector-config.yaml.hbs`
 - Grafana datasources template: `src/templates/grafana-datasources.yml.hbs`
+- Grafana dashboard provider template: `src/templates/grafana-dashboards.yml.hbs`
+- Grafana logs dashboard template: `src/templates/grafana-logs-dashboard.json.hbs`
+- Grafana Prometheus dashboard template: `src/templates/grafana-prometheus-dashboard.json.hbs`
 - Client stack template: `src/templates/stack.client.yml.hbs`
 - Alloy client config template: `src/templates/alloy-client-config.alloy.hbs`
 - OTel client config template: `src/templates/otel-client-collector-config.yaml.hbs`
@@ -195,7 +210,7 @@ make deploy STACK_FILE=deploy/stack.yml
 Generate client stack for a specific network and endpoint:
 
 ```bash
-make client-stack OBS_NETWORK=obs_observability ALLOY_OTLP_ENDPOINT=http://otel-collector:4318
+make client-stack OVS_NETWORK=ovs_observability ALLOY_OTLP_ENDPOINT=http://otel-collector:4318
 ```
 
 Generate client stack with multiple optional collectors:

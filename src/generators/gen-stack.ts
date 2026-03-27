@@ -44,18 +44,48 @@ type StackTemplateContext = {
   otelDependsOn: string[];
 };
 
+type HaproxyTemplateContext = {
+  haproxyDomain: string;
+};
+
 type OTelCollectorTemplateContext = {
   isOpenSearchBackend: boolean;
   isLokiBackend: boolean;
   logExporters: string[];
+  openSearchOtelEndpoint: string;
+  openSearchLogsIndex: string;
+  openSearchLogsIndexFallback: string;
 };
 
 type GrafanaDatasourceTemplateContext = {
   isOpenSearchBackend: boolean;
   isLokiBackend: boolean;
+  openSearchLogsIndex: string;
+  openSearchVersion: string;
 };
 
-function parseBoolean(value: string | undefined, key: string, defaultValue: boolean): boolean {
+type GrafanaDashboardProviderTemplateContext = {
+  dashboardPath: string;
+};
+
+type GrafanaLogsDashboardTemplateContext = {
+  openSearchLogsDatasource: string;
+  dashboardUid: string;
+  dashboardTitle: string;
+};
+
+type GrafanaMetricsDashboardTemplateContext = {
+  prometheusDatasource: string;
+  openSearchLogsDatasource: string;
+  dashboardUid: string;
+  dashboardTitle: string;
+};
+
+function parseBoolean(
+  value: string | undefined,
+  key: string,
+  defaultValue: boolean,
+): boolean {
   const normalized = (value ?? `${defaultValue}`).toLowerCase();
   if (["true", "1", "yes"].includes(normalized)) {
     return true;
@@ -66,7 +96,11 @@ function parseBoolean(value: string | undefined, key: string, defaultValue: bool
   throw new Error(`Invalid boolean: ${value}. ${key} must be true/false.`);
 }
 
-function parsePositiveInteger(value: string | undefined, key: string, defaultValue: number): number {
+function parsePositiveInteger(
+  value: string | undefined,
+  key: string,
+  defaultValue: number,
+): number {
   const resolved = value ?? `${defaultValue}`;
   if (!/^[0-9]+$/.test(resolved)) {
     throw new Error(`${key} must be a positive integer.`);
@@ -79,7 +113,10 @@ function parsePositiveInteger(value: string | undefined, key: string, defaultVal
   return parsed;
 }
 
-function resolveOpenSearchImageTag(major: string | undefined, version: string | undefined): string {
+function resolveOpenSearchImageTag(
+  major: string | undefined,
+  version: string | undefined,
+): string {
   if (version && version.trim().length > 0) {
     return version.trim();
   }
@@ -94,19 +131,28 @@ function resolveOpenSearchImageTag(major: string | undefined, version: string | 
   }
 }
 
-async function renderTemplate(templatePath: string, context: StackTemplateContext): Promise<string> {
+async function renderTemplate(
+  templatePath: string,
+  context: StackTemplateContext,
+): Promise<string> {
   const templateSource = await fs.readFile(templatePath, "utf8");
   const template = Handlebars.compile(templateSource, { noEscape: true });
   return `${template(context).trimEnd()}\n`;
 }
 
-async function renderGenericTemplate<TContext>(templatePath: string, context: TContext): Promise<string> {
+async function renderGenericTemplate<TContext>(
+  templatePath: string,
+  context: TContext,
+): Promise<string> {
   const templateSource = await fs.readFile(templatePath, "utf8");
   const template = Handlebars.compile(templateSource, { noEscape: true });
   return `${template(context).trimEnd()}\n`;
 }
 
-async function writeAtomically(targetFile: string, content: string): Promise<void> {
+async function writeAtomically(
+  targetFile: string,
+  content: string,
+): Promise<void> {
   const directory = path.dirname(targetFile);
   await fs.mkdir(directory, { recursive: true });
 
@@ -115,8 +161,21 @@ async function writeAtomically(targetFile: string, content: string): Promise<voi
   await fs.rename(tempFile, targetFile);
 }
 
+async function removeIfExists(targetFile: string): Promise<void> {
+  try {
+    await fs.unlink(targetFile);
+  } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
 function resolveOutputPath(projectRoot: string, outputPath: string): string {
-  return path.isAbsolute(outputPath) ? outputPath : path.resolve(projectRoot, outputPath);
+  return path.isAbsolute(outputPath)
+    ? outputPath
+    : path.resolve(projectRoot, outputPath);
 }
 
 function toComposePathRef(outputPath: string): string {
@@ -124,44 +183,96 @@ function toComposePathRef(outputPath: string): string {
     return outputPath;
   }
   const normalized = outputPath.replace(/^[.][\\/]/, "").replace(/\\/g, "/");
-  return normalized.length > 0 ? `\${PROJECT_ROOT}/${normalized}` : "${PROJECT_ROOT}";
+  return normalized.length > 0
+    ? `\${PROJECT_ROOT}/${normalized}`
+    : "${PROJECT_ROOT}";
 }
 
 async function main(): Promise<void> {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-  const projectRoot = process.env.PROJECT_ROOT ?? path.resolve(scriptDir, "../..");
+  const projectRoot =
+    process.env.PROJECT_ROOT ?? path.resolve(scriptDir, "../..");
   const stackFile = process.env.STACK_FILE ?? "deploy/stack.yml";
-  const enableOpenSearch = parseBoolean(process.env.ENABLE_OPENSEARCH, "ENABLE_OPENSEARCH", true);
-  const enableLoki = parseBoolean(process.env.ENABLE_LOKI, "ENABLE_LOKI", false);
+  const enableOpenSearch = parseBoolean(
+    process.env.ENABLE_OPENSEARCH,
+    "ENABLE_OPENSEARCH",
+    true,
+  );
+  const enableLoki = parseBoolean(
+    process.env.ENABLE_LOKI,
+    "ENABLE_LOKI",
+    false,
+  );
   if (!enableOpenSearch && !enableLoki) {
-    throw new Error("At least one backend must be enabled: ENABLE_OPENSEARCH or ENABLE_LOKI.");
+    throw new Error(
+      "At least one backend must be enabled: ENABLE_OPENSEARCH or ENABLE_LOKI.",
+    );
   }
-  const enableGrafana = parseBoolean(process.env.ENABLE_GRAFANA, "ENABLE_GRAFANA", true);
-  const enableHaproxyInput = parseBoolean(process.env.ENABLE_HAPROXY, "ENABLE_HAPROXY", true);
+  const enableGrafana = parseBoolean(
+    process.env.ENABLE_GRAFANA,
+    "ENABLE_GRAFANA",
+    true,
+  );
+  const enableHaproxyInput = parseBoolean(
+    process.env.ENABLE_HAPROXY,
+    "ENABLE_HAPROXY",
+    true,
+  );
   const enableHaproxy = enableGrafana && enableHaproxyInput;
-  const enablePrometheus = parseBoolean(process.env.ENABLE_PROMETHEUS, "ENABLE_PROMETHEUS", true);
+  const enablePrometheus = parseBoolean(
+    process.env.ENABLE_PROMETHEUS,
+    "ENABLE_PROMETHEUS",
+    true,
+  );
   const enableOtel = parseBoolean(process.env.ENABLE_OTEL, "ENABLE_OTEL", true);
   const lokiImage = process.env.LOKI_IMAGE ?? "grafana/loki:3.0.0";
   const haproxyImage = process.env.HAPROXY_IMAGE ?? "haproxy:2.9-alpine";
+  const haproxyDomain = process.env.HAPROXY_DOMAIN ?? "ovs.yeto.it.kr";
   const grafanaImage = process.env.GRAFANA_IMAGE ?? "grafana/grafana:11.1.0";
   const grafanaUser = process.env.GRAFANA_USER ?? "1000:1000";
-  const prometheusImage = process.env.PROMETHEUS_IMAGE ?? "prom/prometheus:v2.54.1";
+  const prometheusImage =
+    process.env.PROMETHEUS_IMAGE ?? "prom/prometheus:v2.54.1";
   const prometheusUser = process.env.PROMETHEUS_USER ?? "1000:1000";
   const otelCollectorImage =
-    process.env.OTEL_COLLECTOR_IMAGE ?? "otel/opentelemetry-collector-contrib:0.112.0";
+    process.env.OTEL_COLLECTOR_IMAGE ??
+    "otel/opentelemetry-collector-contrib:0.112.0";
   const lokiDataPath = process.env.LOKI_DATA_PATH ?? "./data/loki";
-  const haproxyConfigFile = process.env.HAPROXY_CONFIG_FILE ?? "config/haproxy.cfg";
+  const haproxyConfigFile =
+    process.env.HAPROXY_CONFIG_FILE ?? "config/haproxy.cfg";
   const otelCollectorConfigFile =
-    process.env.OTEL_COLLECTOR_CONFIG_FILE ?? "config/otel-collector-config.yaml";
+    process.env.OTEL_COLLECTOR_CONFIG_FILE ??
+    "config/otel-collector-config.yaml";
+  const openSearchOtelEndpoint =
+    process.env.OPENSEARCH_OTEL_ENDPOINT ?? "https://opensearch:9200";
+  const openSearchLogsIndex =
+    process.env.OPENSEARCH_OTEL_LOGS_INDEX ??
+    "ss4o_logs-%{stack}-%{service_name}-%{environment}";
+  const openSearchLogsIndexFallback =
+    process.env.OPENSEARCH_OTEL_LOGS_INDEX_FALLBACK ?? "default";
   const grafanaDatasourcesFile =
-    process.env.GRAFANA_DATASOURCES_FILE ?? "config/grafana/provisioning/datasources/datasources.yml";
+    process.env.GRAFANA_DATASOURCES_FILE ??
+    "config/grafana/provisioning/datasources/datasources.yml";
+  const grafanaDashboardsProviderFile =
+    process.env.GRAFANA_DASHBOARDS_PROVIDER_FILE ??
+    "config/grafana/provisioning/dashboards/dashboards.yml";
+  const grafanaLogsDashboardFile =
+    process.env.GRAFANA_LOGS_DASHBOARD_FILE ??
+    "config/grafana/provisioning/dashboards/json/jungto-logs-overview.json";
+  const grafanaMetricsDashboardFile =
+    process.env.GRAFANA_METRICS_DASHBOARD_FILE ??
+    "config/grafana/provisioning/dashboards/json/jungto-metrics-overview.json";
+  const grafanaOpenSearchLogsIndex =
+    process.env.GRAFANA_OPENSEARCH_LOGS_INDEX ?? "ss4o_logs-*";
 
   const openSearchNodesCount = enableOpenSearch
     ? parsePositiveInteger(process.env.OPENSEARCH_NODES, "OPENSEARCH_NODES", 1)
     : 1;
   const isSingleNode = openSearchNodesCount === 1;
   const openSearchImageTag = enableOpenSearch
-    ? resolveOpenSearchImageTag(process.env.OPENSEARCH_MAJOR, process.env.OPENSEARCH_VERSION)
+    ? resolveOpenSearchImageTag(
+        process.env.OPENSEARCH_MAJOR,
+        process.env.OPENSEARCH_VERSION,
+      )
     : "";
 
   const openSearchNames = Array.from(
@@ -239,48 +350,151 @@ async function main(): Promise<void> {
   console.log(`Generated ${stackFile}`);
 
   if (enablePrometheus) {
-    const prometheusTemplatePath = path.resolve(scriptDir, "../templates/prometheus.yml.hbs");
-    const renderedPrometheusConfig = await renderGenericTemplate<Record<string, never>>(
-      prometheusTemplatePath,
-      {},
+    const prometheusTemplatePath = path.resolve(
+      scriptDir,
+      "../templates/prometheus.yml.hbs",
     );
+    const renderedPrometheusConfig = await renderGenericTemplate<
+      Record<string, never>
+    >(prometheusTemplatePath, {});
     const prometheusConfigFile = "config/prometheus.yml";
-    await writeAtomically(resolveOutputPath(projectRoot, prometheusConfigFile), renderedPrometheusConfig);
+    await writeAtomically(
+      resolveOutputPath(projectRoot, prometheusConfigFile),
+      renderedPrometheusConfig,
+    );
     console.log(`Generated ${prometheusConfigFile}`);
   }
 
   if (enableHaproxy) {
-    const haproxyTemplatePath = path.resolve(scriptDir, "../templates/haproxy.cfg.hbs");
-    const renderedHaproxyConfig = await renderGenericTemplate<Record<string, never>>(haproxyTemplatePath, {});
-    await writeAtomically(resolveOutputPath(projectRoot, haproxyConfigFile), renderedHaproxyConfig);
+    const haproxyTemplatePath = path.resolve(
+      scriptDir,
+      "../templates/haproxy.cfg.hbs",
+    );
+    const renderedHaproxyConfig =
+      await renderGenericTemplate<HaproxyTemplateContext>(haproxyTemplatePath, {
+        haproxyDomain,
+      });
+    await writeAtomically(
+      resolveOutputPath(projectRoot, haproxyConfigFile),
+      renderedHaproxyConfig,
+    );
     console.log(`Generated ${haproxyConfigFile}`);
   }
 
   if (enableOtel) {
-    const otelTemplatePath = path.resolve(scriptDir, "../templates/otel-collector-config.yaml.hbs");
-    const renderedOtelConfig = await renderGenericTemplate<OTelCollectorTemplateContext>(otelTemplatePath, {
-      isOpenSearchBackend: enableOpenSearch,
-      isLokiBackend: enableLoki,
-      logExporters: [
-        ...(enableOpenSearch ? ["opensearch"] : []),
-        ...(enableLoki ? ["loki"] : []),
-      ],
-    });
-    await writeAtomically(resolveOutputPath(projectRoot, otelCollectorConfigFile), renderedOtelConfig);
+    const otelTemplatePath = path.resolve(
+      scriptDir,
+      "../templates/otel-collector-config.yaml.hbs",
+    );
+    const renderedOtelConfig =
+      await renderGenericTemplate<OTelCollectorTemplateContext>(
+        otelTemplatePath,
+        {
+          isOpenSearchBackend: enableOpenSearch,
+          isLokiBackend: enableLoki,
+          logExporters: [
+            ...(enableOpenSearch ? ["opensearch"] : []),
+            ...(enableLoki ? ["loki"] : []),
+          ],
+          openSearchOtelEndpoint,
+          openSearchLogsIndex,
+          openSearchLogsIndexFallback,
+        },
+      );
+    await writeAtomically(
+      resolveOutputPath(projectRoot, otelCollectorConfigFile),
+      renderedOtelConfig,
+    );
     console.log(`Generated ${otelCollectorConfigFile}`);
   }
 
   if (enableGrafana) {
-    const grafanaTemplatePath = path.resolve(scriptDir, "../templates/grafana-datasources.yml.hbs");
-    const renderedGrafanaDatasource = await renderGenericTemplate<GrafanaDatasourceTemplateContext>(
-      grafanaTemplatePath,
-      {
-        isOpenSearchBackend: enableOpenSearch,
-        isLokiBackend: enableLoki,
-      },
+    const grafanaDatasourceTemplatePath = path.resolve(
+      scriptDir,
+      "../templates/grafana-datasources.yml.hbs",
     );
-    await writeAtomically(resolveOutputPath(projectRoot, grafanaDatasourcesFile), renderedGrafanaDatasource);
+    const grafanaDashboardProviderTemplatePath = path.resolve(
+      scriptDir,
+      "../templates/grafana-dashboards.yml.hbs",
+    );
+    const grafanaLogsDashboardTemplatePath = path.resolve(
+      scriptDir,
+      "../templates/grafana-logs-dashboard.json.hbs",
+    );
+    const grafanaMetricsDashboardTemplatePath = path.resolve(
+      scriptDir,
+      "../templates/grafana-prometheus-dashboard.json.hbs",
+    );
+
+    const renderedGrafanaDatasource =
+      await renderGenericTemplate<GrafanaDatasourceTemplateContext>(
+        grafanaDatasourceTemplatePath,
+        {
+          isOpenSearchBackend: enableOpenSearch,
+          isLokiBackend: enableLoki,
+          openSearchLogsIndex: grafanaOpenSearchLogsIndex,
+          openSearchVersion: openSearchImageTag,
+        },
+      );
+    await writeAtomically(
+      resolveOutputPath(projectRoot, grafanaDatasourcesFile),
+      renderedGrafanaDatasource,
+    );
     console.log(`Generated ${grafanaDatasourcesFile}`);
+
+    const renderedGrafanaDashboardProvider =
+      await renderGenericTemplate<GrafanaDashboardProviderTemplateContext>(
+        grafanaDashboardProviderTemplatePath,
+        {
+          dashboardPath: "/etc/grafana/provisioning/dashboards/json",
+        },
+      );
+    await writeAtomically(
+      resolveOutputPath(projectRoot, grafanaDashboardsProviderFile),
+      renderedGrafanaDashboardProvider,
+    );
+    console.log(`Generated ${grafanaDashboardsProviderFile}`);
+
+    const logsDashboardTarget = resolveOutputPath(
+      projectRoot,
+      grafanaLogsDashboardFile,
+    );
+    const metricsDashboardTarget = resolveOutputPath(
+      projectRoot,
+      grafanaMetricsDashboardFile,
+    );
+    if (enableOpenSearch) {
+      const renderedLogsDashboard =
+        await renderGenericTemplate<GrafanaLogsDashboardTemplateContext>(
+          grafanaLogsDashboardTemplatePath,
+          {
+            openSearchLogsDatasource: "OpenSearch",
+            dashboardUid: "jungto-logs-overview",
+            dashboardTitle: "Jungto Logs Overview",
+          },
+        );
+      await writeAtomically(logsDashboardTarget, renderedLogsDashboard);
+      console.log(`Generated ${grafanaLogsDashboardFile}`);
+    } else {
+      await removeIfExists(logsDashboardTarget);
+    }
+
+    if (enablePrometheus) {
+      const renderedMetricsDashboard =
+        await renderGenericTemplate<GrafanaMetricsDashboardTemplateContext>(
+          grafanaMetricsDashboardTemplatePath,
+          {
+            prometheusDatasource: "Prometheus",
+            openSearchLogsDatasource: "OpenSearch",
+            dashboardUid: "jungto-metrics-overview",
+            dashboardTitle: "Jungto Metrics Overview",
+          },
+        );
+      await writeAtomically(metricsDashboardTarget, renderedMetricsDashboard);
+      console.log(`Generated ${grafanaMetricsDashboardFile}`);
+    } else {
+      await removeIfExists(metricsDashboardTarget);
+    }
   }
 }
 

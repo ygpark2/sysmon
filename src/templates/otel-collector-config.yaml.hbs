@@ -27,11 +27,22 @@ exporters:
 {{#if isOpenSearchBackend}}
   opensearch:
     http:
-      endpoint: "https://opensearch:9200"
+      endpoint: "{{openSearchOtelEndpoint}}"
       auth:
         authenticator: basicauth/client
       tls:
         insecure_skip_verify: true
+    logs_index: "{{openSearchLogsIndex}}"
+    logs_index_fallback: "{{openSearchLogsIndexFallback}}"
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 2048
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
 {{/if}}
 {{#if isLokiBackend}}
   loki:

@@ -4,3 +4,12 @@
 
 config/
 deploy/
+
+src/generators/*.js
+src/package-lock.json
+
+src/node_modules/
+
+data/grafana/
+data/opensearch1/
+data/prometheus/

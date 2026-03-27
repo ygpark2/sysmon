@@ -1,5 +1,5 @@
-STACK_NAME ?= obs
+STACK_NAME ?= ovs
 ENV_FILE ?= .env
 STACK_FILE ?= deploy/stack.yml
 CLIENT_STACK_FILE ?= deploy/stack.client.yml
-OBS_NETWORK ?= $(STACK_NAME)_observability
+OVS_NETWORK ?= $(STACK_NAME)_observability

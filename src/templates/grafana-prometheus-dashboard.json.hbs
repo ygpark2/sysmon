@@ -1,0 +1,490 @@
+{
+  "uid": "{{dashboardUid}}",
+  "title": "{{dashboardTitle}}",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "tags": ["jts", "metrics", "prometheus"],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{prometheusDatasource}}",
+        "definition": "label_values(container_last_seen{container_label_com_docker_stack_namespace!=\"\"}, container_label_com_docker_stack_namespace)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Stack",
+        "multi": true,
+        "name": "stack",
+        "options": [],
+        "query": "label_values(container_last_seen{container_label_com_docker_stack_namespace!=\"\"}, container_label_com_docker_stack_namespace)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{prometheusDatasource}}",
+        "definition": "label_values(container_last_seen{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name!=\"\"}, container_label_com_docker_swarm_service_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Service",
+        "multi": true,
+        "name": "service",
+        "options": [],
+        "query": "label_values(container_last_seen{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name!=\"\"}, container_label_com_docker_swarm_service_name)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{prometheusDatasource}}",
+        "definition": "label_values(container_last_seen{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name!=\"\"}, container_label_com_docker_swarm_service_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Environment",
+        "multi": true,
+        "name": "environment",
+        "options": [],
+        "query": "label_values(container_last_seen{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name!=\"\"}, container_label_com_docker_swarm_service_name)",
+        "refresh": 2,
+        "regex": "/.*(?:-|_)(prod|staging|dev|qa|default)$/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "title": "Service Availability & Health",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "title": "CPU Usage By Service",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_usage_seconds_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
+          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Memory Usage By Service",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (container_memory_working_set_bytes{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"})",
+          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Running Containers Count",
+      "type": "stat",
+      "datasource": "{{prometheusDatasource}}",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(container_last_seen{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"})"
+        }
+      ]
+    },
+    {
+      "id": 200,
+      "title": "Stability & Diagnosis",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "collapsed": false
+    },
+    {
+      "id": 20,
+      "title": "OOM Kills",
+      "type": "stat",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(container_memory_failcnt{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"})"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "CPU Throttled Seconds",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 16,
+        "x": 8,
+        "y": 14
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_cfs_throttled_seconds_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
+          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}{{"}}"}}"
+        }
+      ]
+    },
+    {
+      "id": 300,
+      "title": "Networking & I/O 상세 정보",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "collapsed": false
+    },
+    {
+      "id": 4,
+      "title": "Network RX (Bps)",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_receive_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
+          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Network TX (Bps)",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_transmit_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
+          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Disk Read (Bps)",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_fs_reads_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
+          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Disk Write (Bps)",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_fs_writes_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
+          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+        }
+      ]
+    },
+    {
+      "id": 400,
+      "title": "로그 기반 통계 (Log Statistics)",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "collapsed": false
+    },
+    {
+      "id": 40,
+      "title": "Error Log Count (Last 1h)",
+      "type": "stat",
+      "datasource": "{{openSearchLogsDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "attributes.stack.keyword:\"$stack\" AND attributes.service_name.keyword:\"$service\" AND attributes.environment.keyword:\"$environment\" AND (body:error OR body:exception OR body:fail)",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [{ "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto" } }]
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "title": "Log Volume Trend",
+      "type": "timeseries",
+      "datasource": "{{openSearchLogsDatasource}}",
+      "gridPos": {
+        "h": 6,
+        "w": 16,
+        "x": 8,
+        "y": 36
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "attributes.stack.keyword:\"$stack\" AND attributes.service_name.keyword:\"$service\" AND attributes.environment.keyword:\"$environment\"",
+          "metrics": [{ "id": "1", "type": "count" }],
+          "bucketAggs": [{ "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto" } }]
+        }
+      ]
+    },
+    {
+      "id": 500,
+      "title": "호스트(서버) 수준 통합 모니터링",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "collapsed": false
+    },
+    {
+      "id": 50,
+      "title": "Host CPU Usage",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 43
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)"
+        }
+      ]
+    },
+    {
+      "id": 51,
+      "title": "Host Memory Usage",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 43
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100)"
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "title": "Host Disk Usage",
+      "type": "timeseries",
+      "datasource": "{{prometheusDatasource}}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 43
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"} * 100)"
+        }
+      ]
+    }
+  ]
+}

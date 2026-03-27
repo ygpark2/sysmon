@@ -35,8 +35,8 @@ make client-stack ...옵션...
 docker stack deploy -c deploy/stack.client.yml <CLIENT_STACK_NAME>
 ```
 
-- 기본 클라이언트 네트워크는 `OBS_NETWORK=<STACK_NAME>_observability`
-- 서버 `STACK_NAME=obs`라면 기본값은 `obs_observability`
+- 기본 클라이언트 네트워크는 `OVS_NETWORK=<STACK_NAME>_observability`
+- 서버 `STACK_NAME=ovs`라면 기본값은 `ovs_observability`
 
 ## Case 1: OpenSearch + Alloy (기본 권장)
 
@@ -48,7 +48,7 @@ docker stack deploy -c deploy/stack.client.yml <CLIENT_STACK_NAME>
 make stack ENABLE_OPENSEARCH=true ENABLE_LOKI=false
 make deploy
 make client-stack ENABLE_CLIENT_ALLOY=true ENABLE_CLIENT_OTELCOL=false ENABLE_CLIENT_FLUENT_BIT=false ENABLE_CLIENT_FILEBEAT=false ENABLE_CLIENT_VECTOR=false
-docker stack deploy -c deploy/stack.client.yml obs-client
+docker stack deploy -c deploy/stack.client.yml ovs-client
 ```
 
 ## Case 2: Loki + Alloy (로그를 Loki 중심으로)
@@ -61,7 +61,7 @@ docker stack deploy -c deploy/stack.client.yml obs-client
 make stack ENABLE_OPENSEARCH=false ENABLE_LOKI=true
 make deploy
 make client-stack ENABLE_CLIENT_ALLOY=true ENABLE_CLIENT_OTELCOL=false ENABLE_CLIENT_FLUENT_BIT=false ENABLE_CLIENT_FILEBEAT=false ENABLE_CLIENT_VECTOR=false
-docker stack deploy -c deploy/stack.client.yml obs-client
+docker stack deploy -c deploy/stack.client.yml ovs-client
 ```
 
 ## Case 3: OpenSearch + Loki 동시 운영 (마이그레이션/비교)
@@ -74,7 +74,7 @@ docker stack deploy -c deploy/stack.client.yml obs-client
 make stack ENABLE_OPENSEARCH=true ENABLE_LOKI=true
 make deploy
 make client-stack ENABLE_CLIENT_ALLOY=true ENABLE_CLIENT_OTELCOL=true ENABLE_CLIENT_FLUENT_BIT=false ENABLE_CLIENT_FILEBEAT=false ENABLE_CLIENT_VECTOR=false
-docker stack deploy -c deploy/stack.client.yml obs-client
+docker stack deploy -c deploy/stack.client.yml ovs-client
 ```
 
 ## Case 4: OpenSearch + Fluent Bit (호스트 로그 중심)
@@ -87,7 +87,7 @@ docker stack deploy -c deploy/stack.client.yml obs-client
 make stack ENABLE_OPENSEARCH=true ENABLE_LOKI=false
 make deploy
 make client-stack ENABLE_CLIENT_ALLOY=false ENABLE_CLIENT_OTELCOL=false ENABLE_CLIENT_FLUENT_BIT=true ENABLE_CLIENT_FILEBEAT=false ENABLE_CLIENT_VECTOR=false FLUENT_BIT_OPENSEARCH_ENDPOINT=http://opensearch:9200
-docker stack deploy -c deploy/stack.client.yml obs-client
+docker stack deploy -c deploy/stack.client.yml ovs-client
 ```
 
 ## Case 5: OpenSearch + Filebeat (Elastic/Beats 운영팀 친화)
@@ -100,7 +100,7 @@ docker stack deploy -c deploy/stack.client.yml obs-client
 make stack ENABLE_OPENSEARCH=true ENABLE_LOKI=false
 make deploy
 make client-stack ENABLE_CLIENT_ALLOY=false ENABLE_CLIENT_OTELCOL=false ENABLE_CLIENT_FLUENT_BIT=false ENABLE_CLIENT_FILEBEAT=true ENABLE_CLIENT_VECTOR=false FILEBEAT_OPENSEARCH_ENDPOINT=http://opensearch:9200
-docker stack deploy -c deploy/stack.client.yml obs-client
+docker stack deploy -c deploy/stack.client.yml ovs-client
 ```
 
 ## Case 6: OpenSearch + Vector (고성능 파이프라인)
@@ -113,7 +113,7 @@ docker stack deploy -c deploy/stack.client.yml obs-client
 make stack ENABLE_OPENSEARCH=true ENABLE_LOKI=false
 make deploy
 make client-stack ENABLE_CLIENT_ALLOY=false ENABLE_CLIENT_OTELCOL=false ENABLE_CLIENT_FLUENT_BIT=false ENABLE_CLIENT_FILEBEAT=false ENABLE_CLIENT_VECTOR=true VECTOR_OPENSEARCH_ENDPOINT=http://opensearch:9200
-docker stack deploy -c deploy/stack.client.yml obs-client
+docker stack deploy -c deploy/stack.client.yml ovs-client
 ```
 
 ## Case 7: Hybrid (Alloy + Fluent Bit 동시)
@@ -126,7 +126,7 @@ docker stack deploy -c deploy/stack.client.yml obs-client
 make stack ENABLE_OPENSEARCH=true ENABLE_LOKI=false
 make deploy
 make client-stack ENABLE_CLIENT_ALLOY=true ENABLE_CLIENT_OTELCOL=false ENABLE_CLIENT_FLUENT_BIT=true ENABLE_CLIENT_FILEBEAT=false ENABLE_CLIENT_VECTOR=false FLUENT_BIT_OPENSEARCH_ENDPOINT=http://opensearch:9200
-docker stack deploy -c deploy/stack.client.yml obs-client
+docker stack deploy -c deploy/stack.client.yml ovs-client
 ```
 
 ## Case 8: Full Collector Lab (거의 모든 클라이언트 테스트)
@@ -139,7 +139,7 @@ docker stack deploy -c deploy/stack.client.yml obs-client
 make stack ENABLE_OPENSEARCH=true ENABLE_LOKI=true
 make deploy
 make client-stack ENABLE_CLIENT_ALLOY=true ENABLE_CLIENT_OTELCOL=true ENABLE_CLIENT_FLUENT_BIT=true ENABLE_CLIENT_FILEBEAT=true ENABLE_CLIENT_VECTOR=true FLUENT_BIT_OPENSEARCH_ENDPOINT=http://opensearch:9200 FILEBEAT_OPENSEARCH_ENDPOINT=http://opensearch:9200 VECTOR_OPENSEARCH_ENDPOINT=http://opensearch:9200
-docker stack deploy -c deploy/stack.client.yml obs-client
+docker stack deploy -c deploy/stack.client.yml ovs-client
 ```
 
 ## Notes

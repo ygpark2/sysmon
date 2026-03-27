@@ -9,6 +9,8 @@ defaults
 
 frontend http_in
   bind *:80
+  acl is_ovs hdr(host) -i {{haproxyDomain}}
+  use_backend grafana_backend if is_ovs
   default_backend grafana_backend
 
 backend grafana_backend
