@@ -1,4 +1,5 @@
 ALLOY_IMAGE ?= grafana/alloy:v1.5.1
+NODE_EXPORTER_IMAGE ?= prom/node-exporter:v1
 ALLOY_OTLP_ENDPOINT ?= http://otel-collector:4318
 ALLOY_CONFIG_FILE ?= config/alloy-client-config.alloy
 OTEL_CLIENT_IMAGE ?= otel/opentelemetry-collector-contrib:0.112.0
@@ -11,6 +12,7 @@ VECTOR_IMAGE ?= timberio/vector:0.42.0-alpine
 VECTOR_CONFIG_FILE ?= config/vector-client.yaml
 
 ENABLE_CLIENT_ALLOY ?= true
+ENABLE_CLIENT_NODE_EXPORTER ?= true
 ENABLE_CLIENT_OTELCOL ?= false
 ENABLE_CLIENT_FLUENT_BIT ?= false
 ENABLE_CLIENT_FILEBEAT ?= false

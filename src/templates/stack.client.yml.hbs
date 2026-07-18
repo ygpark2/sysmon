@@ -20,6 +20,24 @@ services:
       restart_policy:
         condition: on-failure
 {{/if}}
+{{#if enableNodeExporter}}
+  node-exporter:
+    image: {{nodeExporterImage}}
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/host
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro,rslave
+    networks: [observability]
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+{{/if}}
 {{#if enableOtelClientCollector}}
   otel-client-collector:
     image: {{otelClientImage}}

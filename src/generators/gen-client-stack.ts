@@ -5,12 +5,14 @@ import Handlebars from "handlebars";
 
 type StackClientTemplateContext = {
   enableAlloy: boolean;
+  enableNodeExporter: boolean;
   enableOtelClientCollector: boolean;
   enableFluentBit: boolean;
   enableFilebeat: boolean;
   enableVector: boolean;
 
   alloyImage: string;
+  nodeExporterImage: string;
   alloyConfigFile: string;
   otelClientImage: string;
   otelClientConfigFile: string;
@@ -144,6 +146,11 @@ async function main(): Promise<void> {
     "ENABLE_CLIENT_ALLOY",
     true,
   );
+  const enableNodeExporter = parseBoolean(
+    process.env.ENABLE_CLIENT_NODE_EXPORTER,
+    "ENABLE_CLIENT_NODE_EXPORTER",
+    true,
+  );
   const enableOtelClientCollector = parseBoolean(
     process.env.ENABLE_CLIENT_OTELCOL,
     "ENABLE_CLIENT_OTELCOL",
@@ -167,6 +174,7 @@ async function main(): Promise<void> {
 
   const hasAnyService =
     enableAlloy ||
+    enableNodeExporter ||
     enableOtelClientCollector ||
     enableFluentBit ||
     enableFilebeat ||
@@ -181,6 +189,8 @@ async function main(): Promise<void> {
     process.env.CLIENT_OPENSEARCH_ENDPOINT ?? "http://opensearch:9200";
 
   const alloyImage = process.env.ALLOY_IMAGE ?? "grafana/alloy:v1.5.1";
+  const nodeExporterImage =
+    process.env.NODE_EXPORTER_IMAGE ?? "prom/node-exporter:v1.8.2";
   const alloyOtlpEndpoint =
     process.env.ALLOY_OTLP_ENDPOINT ?? clientOtlpEndpoint;
   const alloyConfigFile =
@@ -245,11 +255,13 @@ async function main(): Promise<void> {
     stackTemplatePath,
     {
       enableAlloy,
+      enableNodeExporter,
       enableOtelClientCollector,
       enableFluentBit,
       enableFilebeat,
       enableVector,
       alloyImage,
+      nodeExporterImage,
       alloyConfigFile: toComposePathRef(alloyConfigFile),
       otelClientImage,
       otelClientConfigFile: toComposePathRef(otelClientConfigFile),

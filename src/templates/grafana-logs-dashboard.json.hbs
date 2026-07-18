@@ -43,14 +43,14 @@
           "value": "$__all"
         },
         "datasource": "{{openSearchLogsDatasource}}",
-        "definition": "{\"find\": \"terms\", \"field\": \"attributes.service_name.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:$stack\", \"orderBy\": \"doc_count\"}",
+        "definition": "{\"find\": \"terms\", \"field\": \"attributes.service_name.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:${stack:lucene}\", \"orderBy\": \"doc_count\"}",
         "hide": 0,
         "includeAll": true,
         "label": "Service",
         "multi": true,
         "name": "service",
         "options": [],
-        "query": "{\"find\": \"terms\", \"field\": \"attributes.service_name.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:$stack\", \"orderBy\": \"doc_count\"}",
+        "query": "{\"find\": \"terms\", \"field\": \"attributes.service_name.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:${stack:lucene}\", \"orderBy\": \"doc_count\"}",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -65,14 +65,14 @@
           "value": "$__all"
         },
         "datasource": "{{openSearchLogsDatasource}}",
-        "definition": "{\"find\": \"terms\", \"field\": \"attributes.environment.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:$stack AND attributes.service_name.keyword:$service\", \"orderBy\": \"doc_count\"}",
+        "definition": "{\"find\": \"terms\", \"field\": \"attributes.environment.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:${stack:lucene} AND attributes.service_name.keyword:${service:lucene}\", \"orderBy\": \"doc_count\"}",
         "hide": 0,
         "includeAll": true,
         "label": "Environment",
         "multi": true,
         "name": "environment",
         "options": [],
-        "query": "{\"find\": \"terms\", \"field\": \"attributes.environment.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:$stack AND attributes.service_name.keyword:$service\", \"orderBy\": \"doc_count\"}",
+        "query": "{\"find\": \"terms\", \"field\": \"attributes.environment.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:${stack:lucene} AND attributes.service_name.keyword:${service:lucene}\", \"orderBy\": \"doc_count\"}",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -117,8 +117,8 @@
         {
           "refId": "A",
           "alias": "log count",
-          "query": "attributes.stack.keyword:\"$stack\" AND attributes.service_name.keyword:\"$service\" AND attributes.environment.keyword:\"$environment\" AND $search",
-          "legendFormat": "{{"{{"}}attributes.service_name{{"}}"}}",
+          "query": "attributes.stack.keyword:${stack:lucene} AND attributes.service_name.keyword:${service:lucene} AND attributes.environment.keyword:${environment:lucene} AND ${search:raw}",
+          "legendFormat": "\\u007b\\u007battributes.service_name\\u007d\\u007d",
           "timeField": "@timestamp",
           "bucketAggs": [
             {
@@ -154,7 +154,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "attributes.stack.keyword:\"$stack\" AND attributes.service_name.keyword:\"$service\" AND attributes.environment.keyword:\"$environment\" AND $search",
+          "query": "attributes.stack.keyword:${stack:lucene} AND attributes.service_name.keyword:${service:lucene} AND attributes.environment.keyword:${environment:lucene} AND ${search:raw}",
           "timeField": "@timestamp",
           "bucketAggs": [],
           "metrics": [
@@ -164,7 +164,17 @@
             }
           ]
         }
-      ]
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
     }
   ]
 }

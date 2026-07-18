@@ -78,6 +78,72 @@
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
+      },
+      {
+        "allValue": "*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{openSearchLogsDatasource}}",
+        "definition": "{\"find\": \"terms\", \"field\": \"attributes.stack.keyword\", \"size\": 1000, \"orderBy\": \"doc_count\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Log Stack",
+        "multi": true,
+        "name": "os_stack",
+        "options": [],
+        "query": "{\"find\": \"terms\", \"field\": \"attributes.stack.keyword\", \"size\": 1000, \"orderBy\": \"doc_count\"}",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": "*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{openSearchLogsDatasource}}",
+        "definition": "{\"find\": \"terms\", \"field\": \"attributes.service_name.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:${os_stack:lucene}\", \"orderBy\": \"doc_count\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Log Service",
+        "multi": true,
+        "name": "os_service",
+        "options": [],
+        "query": "{\"find\": \"terms\", \"field\": \"attributes.service_name.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:${os_stack:lucene}\", \"orderBy\": \"doc_count\"}",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": "*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "{{openSearchLogsDatasource}}",
+        "definition": "{\"find\": \"terms\", \"field\": \"attributes.environment.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:${os_stack:lucene} AND attributes.service_name.keyword:${os_service:lucene}\", \"orderBy\": \"doc_count\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Log Environment",
+        "multi": true,
+        "name": "os_environment",
+        "options": [],
+        "query": "{\"find\": \"terms\", \"field\": \"attributes.environment.keyword\", \"size\": 1000, \"query\": \"attributes.stack.keyword:${os_stack:lucene} AND attributes.service_name.keyword:${os_service:lucene}\", \"orderBy\": \"doc_count\"}",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
       }
     ]
   },
@@ -117,7 +183,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_usage_seconds_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
         }
       ]
     },
@@ -141,7 +207,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (container_memory_working_set_bytes{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"})",
-          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
         }
       ]
     },
@@ -227,7 +293,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_cfs_throttled_seconds_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}{{"}}"}}"
+          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
         }
       ]
     },
@@ -263,7 +329,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_receive_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
         }
       ]
     },
@@ -287,7 +353,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_transmit_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
         }
       ]
     },
@@ -311,7 +377,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_fs_reads_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
         }
       ]
     },
@@ -335,7 +401,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_fs_writes_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "{{"{{"}}container_label_com_docker_swarm_service_name{{"}}"}}"
+          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
         }
       ]
     },
@@ -379,7 +445,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "attributes.stack.keyword:\"$stack\" AND attributes.service_name.keyword:\"$service\" AND attributes.environment.keyword:\"$environment\" AND (body:error OR body:exception OR body:fail)",
+          "query": "attributes.stack.keyword:${os_stack:lucene} AND attributes.service_name.keyword:${os_service:lucene} AND attributes.environment.keyword:${os_environment:lucene} AND (body:error OR body:exception OR body:fail)",
           "metrics": [{ "id": "1", "type": "count" }],
           "bucketAggs": [{ "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto" } }]
         }
@@ -399,7 +465,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "attributes.stack.keyword:\"$stack\" AND attributes.service_name.keyword:\"$service\" AND attributes.environment.keyword:\"$environment\"",
+          "query": "attributes.stack.keyword:${os_stack:lucene} AND attributes.service_name.keyword:${os_service:lucene} AND attributes.environment.keyword:${os_environment:lucene}",
           "metrics": [{ "id": "1", "type": "count" }],
           "bucketAggs": [{ "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto" } }]
         }
