@@ -273,7 +273,12 @@ async function main(): Promise<void> {
       vectorImage,
       vectorConfigFile: toComposePathRef(vectorConfigFile),
       vectorDataPath: toComposePathRef("./data/vector"),
-      hasAnyConfig: hasAnyService,
+      hasAnyConfig:
+        enableAlloy ||
+        enableOtelClientCollector ||
+        enableFluentBit ||
+        enableFilebeat ||
+        enableVector,
       ovsNetwork,
     },
   );
