@@ -52,6 +52,8 @@ make client-stack
 - `HAPROXY_IMAGE`, `GRAFANA_IMAGE`, `PROMETHEUS_IMAGE`, and `OTEL_COLLECTOR_IMAGE` are configurable.
 - `GRAFANA_USER` and `PROMETHEUS_USER` are configurable (`uid:gid`) for bind-mount permission control.
 - `GRAFANA_INSTALL_PLUGINS` controls Grafana plugin pre-install list (default includes OpenSearch plugin).
+- `GRAFANA_SERVER_DOMAIN` and `GRAFANA_SERVER_ROOT_URL` configure Grafana's public URL used in generated links.
+- Grafana SMTP settings are configurable with `GRAFANA_SMTP_*` variables and are disabled by default.
 - `OPENSEARCH_INITIAL_ADMIN_PASSWORD` is used for OpenSearch bootstrap.
 - `OPENSEARCH_ADMIN_PASSWORD` is used by Grafana/OTel OpenSearch auth and defaults to `OPENSEARCH_INITIAL_ADMIN_PASSWORD` when unset.
 - `make stack` generates Grafana datasource provisioning and a default OpenSearch logs dashboard automatically.
@@ -81,6 +83,15 @@ CLIENT_OPENSEARCH_ENDPOINT=http://my-opensearch:9200
 - `GRAFANA_IMAGE`: Grafana image (default: `grafana/grafana:11.1.0`)
 - `GRAFANA_USER`: Grafana container user uid:gid (default: `1000:1000`)
 - `GRAFANA_INSTALL_PLUGINS`: Grafana plugin list for startup install (default: `grafana-opensearch-datasource`)
+- `GRAFANA_SERVER_DOMAIN`: Grafana public domain (default: `ovs.yeto.it.kr`)
+- `GRAFANA_SERVER_ROOT_URL`: Grafana public root URL (default: `http://ovs.yeto.it.kr/`)
+- `GRAFANA_SMTP_ENABLED`: enable Grafana SMTP notifications (default: `false`)
+- `GRAFANA_SMTP_HOST`: SMTP server and port, for example `smtp.gmail.com:587`
+- `GRAFANA_SMTP_USER`: SMTP username
+- `GRAFANA_SMTP_PASSWORD`: SMTP password or provider app password
+- `GRAFANA_SMTP_FROM_ADDRESS`: sender email address
+- `GRAFANA_SMTP_FROM_NAME`: sender display name (default: `Grafana`)
+- `GRAFANA_SMTP_STARTTLS_POLICY`: Grafana STARTTLS policy (default: `Mandatory`)
 - `PROMETHEUS_IMAGE`: Prometheus image (default: `prom/prometheus:v2.54.1`)
 - `PROMETHEUS_USER`: Prometheus container user uid:gid (default: `1000:1000`)
 - `OTEL_COLLECTOR_IMAGE`: OTel Collector image (default: `otel/opentelemetry-collector-contrib:0.112.0`)
