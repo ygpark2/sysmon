@@ -28,6 +28,11 @@ GRAFANA_DASHBOARDS_PROVIDER_FILE ?= config/grafana/provisioning/dashboards/dashb
 GRAFANA_LOGS_DASHBOARD_FILE ?= config/grafana/provisioning/dashboards/json/jungto-logs-overview.json
 GRAFANA_METRICS_DASHBOARD_FILE ?= config/grafana/provisioning/dashboards/json/jungto-metrics-overview.json
 GRAFANA_OPENSEARCH_LOGS_INDEX ?= ss4o_logs-*
+GRAFANA_ALERTING_FILE ?= config/grafana/provisioning/alerting/alerting.yml
+ENABLE_TELEGRAM_ALERT ?= true
+TELEGRAM_BOT_TOKEN ?=
+TELEGRAM_CHAT_ID ?=
+TELEGRAM_CHAT_IDS ?= $(TELEGRAM_CHAT_ID)
 
 OPENSEARCH_MAJOR ?= 3
 OPENSEARCH_VERSION ?=

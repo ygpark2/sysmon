@@ -80,6 +80,50 @@
         "type": "query"
       },
       {
+        "allValue": "*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Level",
+        "multi": true,
+        "name": "level",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "ERROR",
+            "value": "ERROR"
+          },
+          {
+            "selected": false,
+            "text": "WARN",
+            "value": "WARN"
+          },
+          {
+            "selected": false,
+            "text": "INFO",
+            "value": "INFO"
+          },
+          {
+            "selected": false,
+            "text": "DEBUG",
+            "value": "DEBUG"
+          }
+        ],
+        "query": "ERROR, WARN, INFO, DEBUG",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
         "current": {
           "selected": true,
           "text": "*",
@@ -117,8 +161,8 @@
         {
           "refId": "A",
           "alias": "log count",
-          "query": "attributes.stack.keyword:${stack:lucene} AND attributes.service_name.keyword:${service:lucene} AND attributes.environment.keyword:${environment:lucene} AND ${search:raw}",
-          "legendFormat": "\\u007b\\u007battributes.service_name\\u007d\\u007d",
+          "query": "attributes.stack.keyword:${stack:lucene} AND attributes.service_name.keyword:${service:lucene} AND attributes.environment.keyword:${environment:lucene} AND (severity.text:${level:lucene} OR body:${level:lucene}) AND ${search:raw}",
+          "legendFormat": "\{{attributes.service_name}}",
           "timeField": "@timestamp",
           "bucketAggs": [
             {
@@ -154,7 +198,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "attributes.stack.keyword:${stack:lucene} AND attributes.service_name.keyword:${service:lucene} AND attributes.environment.keyword:${environment:lucene} AND ${search:raw}",
+          "query": "attributes.stack.keyword:${stack:lucene} AND attributes.service_name.keyword:${service:lucene} AND attributes.environment.keyword:${environment:lucene} AND (severity.text:${level:lucene} OR body:${level:lucene}) AND ${search:raw}",
           "timeField": "@timestamp",
           "bucketAggs": [],
           "metrics": [

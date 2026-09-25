@@ -90,6 +90,8 @@ services:
 {{#if enableOpenSearch}}
       - OPENSEARCH_ADMIN_PASSWORD=${OPENSEARCH_ADMIN_PASSWORD}
 {{/if}}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
     volumes:
       - {{grafanaDataPath}}:/var/lib/grafana
       - {{grafanaProvisioningPath}}:/etc/grafana/provisioning

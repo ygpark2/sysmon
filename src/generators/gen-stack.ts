@@ -81,6 +81,15 @@ type GrafanaMetricsDashboardTemplateContext = {
   dashboardTitle: string;
 };
 
+type TelegramReceiver = {
+  uid: string;
+  chatId: string;
+};
+
+type GrafanaAlertingTemplateContext = {
+  telegramReceivers: TelegramReceiver[];
+};
+
 function parseBoolean(
   value: string | undefined,
   key: string,
@@ -263,6 +272,25 @@ async function main(): Promise<void> {
     "config/grafana/provisioning/dashboards/json/jungto-metrics-overview.json";
   const grafanaOpenSearchLogsIndex =
     process.env.GRAFANA_OPENSEARCH_LOGS_INDEX ?? "ss4o_logs-*";
+  const grafanaAlertingFile =
+    process.env.GRAFANA_ALERTING_FILE ??
+    "config/grafana/provisioning/alerting/alerting.yml";
+  const telegramBotToken = (process.env.TELEGRAM_BOT_TOKEN ?? "").trim();
+  const rawTelegramChatIds =
+    process.env.TELEGRAM_CHAT_IDS ?? process.env.TELEGRAM_CHAT_ID ?? "";
+  const parsedTelegramChatIds = rawTelegramChatIds
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+  const hasTelegramCredentials =
+    telegramBotToken.length > 0 && parsedTelegramChatIds.length > 0;
+
+  const enableTelegramAlertInput = process.env.ENABLE_TELEGRAM_ALERT;
+  const enableTelegramAlert =
+    enableTelegramAlertInput !== undefined && enableTelegramAlertInput !== ""
+      ? parseBoolean(enableTelegramAlertInput, "ENABLE_TELEGRAM_ALERT", false) &&
+        hasTelegramCredentials
+      : hasTelegramCredentials;
 
   const openSearchNodesCount = enableOpenSearch
     ? parsePositiveInteger(process.env.OPENSEARCH_NODES, "OPENSEARCH_NODES", 1)
@@ -425,6 +453,10 @@ async function main(): Promise<void> {
       scriptDir,
       "../templates/grafana-prometheus-dashboard.json.hbs",
     );
+    const grafanaAlertingTemplatePath = path.resolve(
+      scriptDir,
+      "../templates/grafana-alerting.yml.hbs",
+    );
 
     const renderedGrafanaDatasource =
       await renderGenericTemplate<GrafanaDatasourceTemplateContext>(
@@ -494,6 +526,31 @@ async function main(): Promise<void> {
       console.log(`Generated ${grafanaMetricsDashboardFile}`);
     } else {
       await removeIfExists(metricsDashboardTarget);
+    }
+
+    const alertingTarget = resolveOutputPath(
+      projectRoot,
+      grafanaAlertingFile,
+    );
+    if (enableTelegramAlert && enableOpenSearch) {
+      const telegramReceivers: TelegramReceiver[] = parsedTelegramChatIds.map(
+        (chatId, index) => ({
+          uid: `telegram-receiver-${index + 1}`,
+          chatId,
+        }),
+      );
+
+      const renderedAlerting =
+        await renderGenericTemplate<GrafanaAlertingTemplateContext>(
+          grafanaAlertingTemplatePath,
+          {
+            telegramReceivers,
+          },
+        );
+      await writeAtomically(alertingTarget, renderedAlerting);
+      console.log(`Generated ${grafanaAlertingFile}`);
+    } else {
+      await removeIfExists(alertingTarget);
     }
   }
 }

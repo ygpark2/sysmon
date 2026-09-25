@@ -183,7 +183,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_usage_seconds_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
+          "legendFormat": "\{{container_label_com_docker_swarm_service_name}}"
         }
       ]
     },
@@ -207,7 +207,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (container_memory_working_set_bytes{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"})",
-          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
+          "legendFormat": "\{{container_label_com_docker_swarm_service_name}}"
         }
       ]
     },
@@ -293,7 +293,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_cpu_cfs_throttled_seconds_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
+          "legendFormat": "\{{container_label_com_docker_swarm_service_name}}"
         }
       ]
     },
@@ -329,7 +329,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_receive_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
+          "legendFormat": "\{{container_label_com_docker_swarm_service_name}}"
         }
       ]
     },
@@ -353,7 +353,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_network_transmit_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
+          "legendFormat": "\{{container_label_com_docker_swarm_service_name}}"
         }
       ]
     },
@@ -377,7 +377,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_fs_reads_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
+          "legendFormat": "\{{container_label_com_docker_swarm_service_name}}"
         }
       ]
     },
@@ -401,7 +401,7 @@
         {
           "refId": "A",
           "expr": "sum by (container_label_com_docker_swarm_service_name) (rate(container_fs_writes_bytes_total{container_label_com_docker_stack_namespace=~\"$stack\", container_label_com_docker_swarm_service_name=~\"$service\", container_label_com_docker_swarm_service_name=~\".*(?:-|_)$environment$\"}[5m]))",
-          "legendFormat": "\\u007b\\u007bcontainer_label_com_docker_swarm_service_name\\u007d\\u007d"
+          "legendFormat": "\{{container_label_com_docker_swarm_service_name}}"
         }
       ]
     },
