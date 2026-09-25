@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>AWS 플랫폼 대응 아키텍처</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+    body { font-family: AppleGothic, sans-serif; color: #222; font-size: 10.5pt; line-height: 1.65; }
+    h1 { color: #153e75; font-size: 24pt; margin: 0 0 8pt; }
+    h2 { color: #1f5f9b; font-size: 16pt; border-bottom: 1px solid #9fbad0; padding-bottom: 4pt; margin-top: 22pt; }
+    h3 { color: #285f86; font-size: 12.5pt; margin-top: 16pt; }
+    .subtitle { color: #666; font-size: 12pt; margin-bottom: 18pt; }
+    .meta { background: #eef5fb; border-left: 4px solid #2f75b5; padding: 9pt 12pt; margin: 12pt 0 16pt; }
+    .warning { background: #fff7e6; border-left: 4px solid #d98b00; padding: 9pt 12pt; margin: 12pt 0; }
+    table { width: 100%; border-collapse: collapse; margin: 8pt 0 14pt; font-size: 9.2pt; }
+    th { background: #dceaf7; color: #17365d; text-align: left; }
+    th, td { border: 1px solid #aebdca; padding: 5pt 7pt; vertical-align: top; }
+    code, pre { font-family: Menlo, Monaco, monospace; }
+    code { background: #f2f2f2; padding: 1pt 3pt; }
+    pre { background: #f6f8fa; border: 1px solid #d8dee4; padding: 8pt; font-size: 7.2pt; line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
+    .mermaid { width: 100%; text-align: center; margin: 12pt 0 18pt; }
+    .mermaid svg { max-width: 100%; height: auto; }
+    .source-block { display: none; }
+    ul { margin-top: 4pt; }
+    li { margin: 2pt 0; }
+    .page-break { page-break-before: always; }
+    .small { color: #666; font-size: 8.5pt; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', function () { mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', theme: 'base', themeVariables: { fontFamily: 'AppleGothic, sans-serif', primaryColor: '#e3f2fd', primaryBorderColor: '#1565c0', lineColor: '#53718c', secondaryColor: '#fff3e0', tertiaryColor: '#f3e5f5' } }); });</script>
+</head>
+<body>
+  <h1>AWS 플랫폼 대응 아키텍처</h1>
+  <div class="subtitle">AOBS Stack / Docker Swarm 기반 관측 시스템 설계 문서</div>
+
+  <div class="meta">
+    <b>문서 목적</b><br>
+    이 문서는 현재 프로젝트가 생성하는 Docker Swarm 서버 스택과 클라이언트 스택을 AWS 환경에 배치할 때 대응되는 구성, 데이터 흐름, 네트워크 경계, 저장소 및 운영 고려사항을 설명합니다.
+  </div>
+
+  <h2>1. 결론 요약</h2>
+  <p>
+    이 프로젝트는 <code>make stack</code>과 <code>make client-stack</code>으로 Docker Compose v3.8 형식의 Swarm stack 파일을 생성합니다. 따라서 가장 직접적인 AWS 배치 모델은 <b>EC2 기반 Docker Swarm 클러스터</b>입니다.
+  </p>
+  <p>
+    외부 사용자는 ALB를 통해 HAProxy로 접근하고, HAProxy는 Grafana로 요청을 전달합니다. 애플리케이션의 logs, metrics, traces는 클라이언트의 Alloy 또는 OTel Collector를 거쳐 중앙 OTel Collector로 들어옵니다. 로그는 OpenSearch 또는 선택적 Loki로, 메트릭은 Prometheus로 저장하며 Grafana가 이를 조회합니다.
+  </p>
+  <div class="warning">
+    현재 저장소에는 Terraform, CloudFormation, CDK 또는 AWS SDK 코드가 없습니다. 아래 AWS 리소스는 이 프로젝트를 AWS에 배치하기 위한 참조 설계이며, 실제 생성과 권한 설정은 별도의 IaC/운영 코드가 필요합니다.
+  </div>
+
+  <h2>2. 프로젝트와 AWS 리소스의 대응</h2>
+  <table>
+    <tr><th>프로젝트 구성</th><th>AWS 대응 리소스</th><th>설계 의도</th></tr>
+    <tr><td>Docker Swarm manager</td><td>EC2 인스턴스 3대 권장(운영 환경)</td><td>Swarm quorum과 클러스터 제어 plane 유지</td></tr>
+    <tr><td>Docker Swarm worker</td><td>EC2 Auto Scaling Group</td><td>애플리케이션과 관측 서비스의 실행 노드</td></tr>
+    <tr><td>HAProxy :80</td><td>ALB 뒤의 Swarm worker 서비스</td><td>현재 코드의 Grafana reverse proxy를 유지</td></tr>
+    <tr><td><code>ovs_observability</code></td><td>Swarm overlay network</td><td>서버 stack과 client stack 사이의 서비스 discovery</td></tr>
+    <tr><td><code>./data/opensearch*</code></td><td>OpenSearch 노드별 EBS gp3</td><td>노드 데이터의 영속성 확보</td></tr>
+    <tr><td><code>./data/prometheus</code>, <code>./data/grafana</code>, <code>./data/loki</code></td><td>각 서비스 전용 EBS 볼륨</td><td>TSDB, dashboard, log store 데이터 보존</td></tr>
+    <tr><td>Docker Hub 등 이미지</td><td>NAT Gateway 경유 public registry 또는 ECR</td><td>Private Subnet 노드의 이미지 pull</td></tr>
+    <tr><td>Makefile + TypeScript generator</td><td>CI/CD runner 또는 관리용 배포 호스트</td><td>stack 생성 후 Swarm manager에 배포</td></tr>
+  </table>
+
+  <h2>3. 네트워크 구성</h2>
+  <h3>3.1 VPC와 Subnet</h3>
+  <ul>
+    <li>최소 2개 Availability Zone에 Public Subnet과 Private Subnet을 구성합니다.</li>
+    <li>Public Subnet에는 ALB와 NAT Gateway를 배치합니다.</li>
+    <li>Swarm manager, observability worker, application worker는 Private Subnet에 배치합니다.</li>
+    <li>관리 접속은 SSH를 인터넷에 노출하기보다 Systems Manager Session Manager를 우선 고려합니다.</li>
+  </ul>
+
+  <h3>3.2 Security Group 권장 규칙</h3>
+  <table>
+    <tr><th>출발지</th><th>목적지 / 포트</th><th>용도</th></tr>
+    <tr><td>인터넷 또는 사내망</td><td>ALB :443 또는 :80</td><td>Grafana 사용자 접근</td></tr>
+    <tr><td>ALB SG</td><td>HAProxy 노드 :80</td><td>ALB target group → HAProxy</td></tr>
+    <tr><td>Client worker SG</td><td>OTel Collector :4317/:4318</td><td>앱 텔레메트리 수집</td></tr>
+    <tr><td>Prometheus SG</td><td>node-exporter :9100, OTel :8889</td><td>메트릭 scrape</td></tr>
+    <tr><td>수집기/로그 에이전트 SG</td><td>OpenSearch :9200, Loki :3100</td><td>로그 전송</td></tr>
+    <tr><td>Swarm 노드 SG</td><td>Swarm control/data ports</td><td>노드 간 클러스터 통신</td></tr>
+  </table>
+  <p class="small">실제 포트와 source CIDR은 운영 환경의 네트워크 정책에 맞춰 최소 권한으로 제한해야 합니다. OpenSearch와 Loki를 인터넷에 직접 노출하지 않는 것이 원칙입니다.</p>
+
+  <h2>4. 데이터 흐름</h2>
+  <h3>4.1 애플리케이션 텔레메트리</h3>
+  <ol>
+    <li>애플리케이션이 OTLP logs, metrics, traces를 Alloy 또는 client OTel Collector에 전송합니다.</li>
+    <li>Alloy와 client OTel Collector는 <code>CLIENT_OTLP_ENDPOINT</code> 기본값인 <code>http://otel-collector:4318</code>을 사용합니다.</li>
+    <li>중앙 OTel Collector는 memory limiter와 batch processor를 적용합니다.</li>
+    <li>logs는 OpenSearch exporter 또는 Loki exporter로 보냅니다.</li>
+    <li>metrics는 OTel Collector의 Prometheus endpoint <code>:8889</code>로 노출하고 Prometheus가 scrape합니다.</li>
+  </ol>
+
+  <h3>4.2 호스트 로그</h3>
+  <p>
+    Fluent Bit, Filebeat, Vector는 클라이언트 EC2의 <code>/var/log/*.log</code>를 읽습니다. 현재 템플릿 기준 이 세 에이전트는 OpenSearch endpoint로 직접 전송합니다. 따라서 Loki-only 구성에서는 Alloy 또는 OTel client collector 중심으로 운영하는 편이 적합합니다.
+  </p>
+
+  <h3>4.3 조회 경로</h3>
+  <p>
+    운영자는 ALB를 통해 HAProxy에 접속하고, HAProxy가 Grafana <code>:3000</code>으로 라우팅합니다. Grafana에는 Prometheus, OpenSearch, 선택적 Loki datasource가 provisioning됩니다. metrics dashboard는 Prometheus를, logs dashboard는 OpenSearch 또는 Loki를 조회합니다.
+  </p>
+
+  <h2>5. 저장소 및 장애 대응</h2>
+  <ul>
+    <li><b>OpenSearch:</b> 노드별 EBS를 사용하고, 다중 노드 구성에서는 AZ를 분산합니다. 백업을 위해 별도 snapshot 정책을 추가해야 합니다.</li>
+    <li><b>Prometheus:</b> 로컬 TSDB는 EBS에 저장됩니다. 장기 보관이 필요하면 remote_write 대상 또는 Amazon Managed Service for Prometheus로의 확장을 검토합니다.</li>
+    <li><b>Grafana:</b> dashboard provisioning 파일은 코드로 재생성되지만, 사용자 설정과 plugin 상태는 <code>./data/grafana</code>에 보존됩니다.</li>
+    <li><b>Loki:</b> 선택 서비스이며 <code>ENABLE_LOKI=true</code>일 때만 활성화됩니다.</li>
+    <li><b>EBS 장애:</b> 단일 EC2에만 연결되는 volume은 해당 노드 장애 시 복구 절차가 필요합니다. OpenSearch 데이터는 multi-AZ node와 snapshot을 함께 구성해야 합니다.</li>
+  </ul>
+
+  <h2>6. 배포 순서</h2>
+  <pre>1. AWS VPC, Subnet, Route Table, SG, EC2 Swarm cluster 준비
+2. EBS volume mount 및 Docker Swarm 초기화
+3. 관리용 환경 파일(.env)과 비밀번호 Secret 준비
+4. make stack ENABLE_OPENSEARCH=true ENABLE_OTEL=true ...
+5. make deploy
+6. make client-stack ENABLE_CLIENT_ALLOY=true ENABLE_CLIENT_NODE_EXPORTER=true ...
+7. docker stack deploy -c deploy/stack.client.yml ovs-client
+8. ALB target health, Grafana datasource, Prometheus targets, OpenSearch index 확인</pre>
+  <p>운영 배포에서는 비밀번호를 일반 파일이나 명령행에 남기지 말고 AWS Secrets Manager 또는 SSM Parameter Store와 CI/CD secret 연계를 사용하는 것을 권장합니다.</p>
+
+  <h2>7. 현재 코드의 한계와 확장 방향</h2>
+  <table>
+    <tr><th>현재 상태</th><th>운영 확장 방향</th></tr>
+    <tr><td>EC2 bind mount 기반 영속 데이터</td><td>EBS snapshot, 백업 자동화, 노드별 volume lifecycle 관리</td></tr>
+    <tr><td>Prometheus node-exporter target이 정적 IP</td><td>EC2 service discovery, DNS 또는 Cloud Map 기반 scrape 구성</td></tr>
+    <tr><td>Docker Swarm stack 직접 배포</td><td>CodePipeline/GitHub Actions + 배포 manager 또는 IaC 도입</td></tr>
+    <tr><td>OpenSearch를 컨테이너로 운영</td><td>Amazon OpenSearch Service로 이전하는 별도 exporter/datasource 검토</td></tr>
+    <tr><td>HAProxy 외부 HTTP 진입</td><td>ALB HTTPS termination, ACM certificate, WAF 적용</td></tr>
+  </table>
+
+  <h2 class="page-break">8. AWS 플랫폼 구성 다이어그램</h2>
+  <p>다음 그림은 프로젝트의 Docker Swarm 구성을 AWS의 VPC, ALB, EC2, EBS 경계에 배치한 논리 구성도입니다. 박스 안의 서비스는 실제 프로젝트 stack에 포함되는 컨테이너이고, 주황색 영역은 AWS 인프라 경계를 의미합니다.</p>
+  <div class="mermaid">
+flowchart TB
+    users[운영자 / 개발자]
+    apps[업무 애플리케이션<br/>OTLP logs, metrics, traces]
+    subgraph aws[AWS Account / Region]
+      subgraph vpc[VPC]
+        igw[Internet Gateway]
+        subgraph public[Public Subnets]
+          alb[Application Load Balancer<br/>listener :80 or :443]
+          nat[NAT Gateway]
+        end
+        subgraph private[Private Subnets across AZ A / AZ B]
+          manager[EC2 Swarm Manager<br/>cluster control plane]
+          workers[EC2 Swarm Workers<br/>application + observability]
+          subgraph server[Docker Swarm server stack]
+            haproxy[HAProxy :80]
+            grafana[Grafana :3000]
+            prometheus[Prometheus :9090]
+            otel[OTel Collector<br/>4317 / 4318 / 8889]
+            opensearch[OpenSearch :9200<br/>1 or N nodes]
+            loki[Loki :3100<br/>optional]
+          end
+          subgraph client[Docker Swarm client stack]
+            alloy[Alloy]
+            clientotel[OTel client collector<br/>optional]
+            nodeexp[node-exporter<br/>global mode]
+            agents[Fluent Bit / Filebeat / Vector<br/>optional host log agents]
+          end
+          overlay[(ovs_observability<br/>external overlay network)]
+          ebs[(EBS gp3<br/>./data/* bind mounts)]
+        end
+        sg[Security Groups<br/>least-privilege rules]
+      end
+    end
+    registry[(Docker Hub / ECR<br/>container images)]
+
+    users -->|HTTPS / HTTP| igw --> alb
+    alb -->|target group :80| haproxy -->|:3000| grafana
+    apps -->|OTLP| alloy
+    apps -->|OTLP| clientotel
+    alloy -->|OTLP/HTTP :4318| otel
+    clientotel -->|OTLP/HTTP :4318| otel
+    agents -->|direct logs| opensearch
+    nodeexp -->|scrape :9100| prometheus
+    otel -->|metrics :8889| prometheus
+    otel -->|logs exporter| opensearch
+    otel -->|Loki push| loki
+    grafana -->|PromQL / log queries| prometheus
+    grafana -->|log queries| opensearch
+    grafana -->|log queries| loki
+    manager -.->|Swarm control| workers
+    server --- overlay
+    client --- overlay
+    opensearch --- ebs
+    loki --- ebs
+    prometheus --- ebs
+    grafana --- ebs
+    vpc -.-> sg
+    nat -->|private subnet egress| registry
+    registry -.->|image pull| server
+    registry -.->|image pull| client
+
+    classDef aws fill:#fff3e0,stroke:#e65100,color:#4e342e;
+    classDef compute fill:#e3f2fd,stroke:#1565c0,color:#0d47a1;
+    classDef store fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c;
+    classDef optional fill:#f5f5f5,stroke:#757575,color:#424242,stroke-dasharray: 5 5;
+    class alb,vpc,public,private,igw,nat,sg aws;
+    class manager,workers,server,client,alloy,clientotel,nodeexp,agents,haproxy,grafana,prometheus,otel,opensearch compute;
+    class ebs,overlay,registry store;
+    class loki optional;
+</div>
+
+  <h3>다이어그램 읽는 순서</h3>
+  <ol>
+    <li>사용자 요청은 Internet Gateway와 ALB를 거쳐 HAProxy로 들어옵니다.</li>
+    <li>HAProxy는 프로젝트의 기존 설정처럼 Grafana <code>:3000</code>으로 요청을 전달합니다.</li>
+    <li>애플리케이션 텔레메트리는 client stack의 Alloy 또는 OTel client collector에서 중앙 OTel Collector로 전송됩니다.</li>
+    <li>중앙 collector는 로그를 OpenSearch/Loki로, 메트릭을 Prometheus scrape endpoint로 노출합니다.</li>
+    <li>Grafana는 Prometheus와 로그 저장소를 조회하며, 데이터 서비스는 EBS에 영속화됩니다.</li>
+  </ol>
+
+  <h3 class="small">재사용 가능한 Mermaid 원문</h3>
+  <pre class="source-block">flowchart LR
+    users[운영자 / 개발자]
+    apps[업무 애플리케이션\nOTLP logs, metrics, traces]
+
+    subgraph aws[AWS Account / Region]
+      subgraph vpc[VPC]
+        igw[Internet Gateway]
+        subgraph public[Public Subnets]
+          alb[Application Load Balancer\nlistener :80]
+          nat[NAT Gateway\nprivate node egress]
+        end
+        subgraph az1[Private Subnet - AZ A]
+          manager[EC2 Swarm Manager\ncluster control plane]
+          obs1[EC2 Swarm Worker\nobservability services]
+          app1[EC2 Swarm Worker\napplication services]
+        end
+        subgraph az2[Private Subnet - AZ B]
+          obs2[EC2 Swarm Worker\nobservability replica / data node]
+          app2[EC2 Swarm Worker\napplication services]
+        end
+        subgraph central[Docker Swarm server stack]
+          haproxy[HAProxy\n:80]
+          grafana[Grafana\n:3000]
+          prometheus[Prometheus\n:9090]
+          otel[OTel Collector\n:4317 / :4318 / :8889]
+          opensearch[OpenSearch\n:9200\n1 node or N nodes]
+          loki[Loki\n:3100 optional]
+          overlay[(External overlay network\novs_observability)]
+        end
+        subgraph client[Docker Swarm client stack]
+          alloy[Alloy\nOTLP receiver]
+          clientotel[OTel client collector\noptional]
+          nodeexp[node-exporter\nmode: global]
+          agents[Fluent Bit / Filebeat / Vector\noptional host log agents]
+        end
+        ebs[(EBS gp3 volumes\n./data/* bind mounts)]
+        sg[Security Groups\nALB -> :80\ninternal telemetry ports]
+      end
+    end
+
+    registries[(Docker Hub / public registries)]
+    users -->|HTTPS/HTTP| igw --> alb
+    alb -->|target group :80| haproxy
+    haproxy -->|backend :3000| grafana
+    apps -->|OTLP| alloy
+    apps -->|OTLP| clientotel
+    alloy -->|OTLP/HTTP :4318| otel
+    clientotel -->|OTLP/HTTP :4318| otel
+    agents -->|direct logs :9200| opensearch
+    nodeexp -->|scrape :9100| prometheus
+    otel -->|metrics :8889| prometheus
+    otel -->|logs exporter| opensearch
+    otel -->|Loki push when enabled| loki
+    grafana -->|PromQL| prometheus
+    grafana -->|logs query| opensearch
+    grafana -->|logs query when enabled| loki
+    manager -.->|Swarm control| obs1
+    manager -.->|Swarm control| obs2
+    manager -.->|Swarm control| app1
+    manager -.->|Swarm control| app2
+    central --- overlay
+    client ---|shared external network| overlay
+    opensearch --- ebs
+    loki --- ebs
+    prometheus --- ebs
+    grafana --- ebs
+    vpc -.-> sg
+    obs1 -.-> central
+    obs2 -.-> central
+    app1 -.-> client
+    app2 -.-> client
+    nat -->|image pull / updates| registries
+    registries -.->|deploy-time image pull| central
+    registries -.->|deploy-time image pull| client</pre>
+
+  <p class="small">작성 기준: 프로젝트의 README, Makefile, mk/*.mk, Docker Swarm template 및 collector 설정 파일. AWS 관리형 서비스 전환 부분은 별도 설계가 필요한 제안 사항입니다.</p>
+</body>
+</html>
